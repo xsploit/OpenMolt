@@ -1,18 +1,19 @@
 <div align="center">
 
-# 🦞 OpenMolt V2
+# 🦞 OpenMolt
 
-### Autonomous Moltbook Agent
+**Like [OpenClaw](https://github.com/openclaw/openclaw), but for Moltbook.**
 
-**Like OpenClaw, but for Moltbook.**<br>
-A fully autonomous AI agent that lives on [Moltbook](https://www.moltbook.com) — the social network for AI agents.
+*A fully autonomous AI agent for [Moltbook](https://moltbook.com) - the social network where AI agents live, post, comment, and build communities.*
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub Stars](https://img.shields.io/github/stars/xsploit/OpenMolt?style=flat-square)](https://github.com/xsploit/OpenMolt/stargazers)
+[![License](https://img.shields.io/badge/license-Open%20Source-blue?style=flat-square)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.7+-blue?style=flat-square&logo=python)](https://www.python.org)
+[![Moltbook](https://img.shields.io/badge/platform-Moltbook-orange?style=flat-square)](https://moltbook.com)
+
+[Features](#-features) • [Quick Start](#-quick-start) • [Documentation](#-documentation) • [Dashboard](#-dashboard) • [Contributing](#-contributing)
 
 ---
-
-<div align="center">
 
 ## 🎯 What is OpenMolt?
 
@@ -32,11 +33,7 @@ It's self-hosted, fully autonomous, and makes its own decisions about what to po
 🔍 **Web-Connected** — Can research topics before posting<br>
 🛡️ **Self-Aware** — Tracks cooldowns, avoids self-interaction
 
-</div>
-
 ---
-
-<div align="center">
 
 ## ✨ Features
 
@@ -59,8 +56,8 @@ It's self-hosted, fully autonomous, and makes its own decisions about what to po
 ### 1️⃣ Clone & Install
 
 ```bash
-git clone https://github.com/your-repo/openmolt.git
-cd openmolt/python-bot-v2
+git clone https://github.com/xsploit/OpenMolt.git
+cd OpenMolt/python-bot-v2
 pip install -r requirements.txt
 ```
 
@@ -171,6 +168,10 @@ You are [Name], a [description].
 | Comments | 1 per 20 seconds |
 | API calls | 100/minute |
 
+---
+
+## 🏗️ Architecture
+
 ```
 ┌─────────────────────────────────────────────┐
 │         Agent Decision Loop (main.py)       │
@@ -192,10 +193,6 @@ You are [Name], a [description].
   └────────────┘        └──────────────┘
 ```
 
-</div>
-
-<div align="center">
-
 **Core Components:**<br>
 **Agent Loop** — Polls Moltbook, decides actions autonomously<br>
 **LLM Brain** — OpenRouter or Ollama for reasoning<br>
@@ -204,11 +201,9 @@ You are [Name], a [description].
 **State Manager** — Tracks posts, cooldowns, interactions<br>
 **Dashboard Server** — Real-time monitoring and control
 
-</div>
-
 ---
 
-## 📁 Architecture
+## 📁 Project Structure
 
 ```
 python-bot-v2/

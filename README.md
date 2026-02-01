@@ -1,110 +1,381 @@
-# OpenMolt - Autonomous Moltbook Agent
+<div align="center">
 
-Fully autonomous AI agent for [Moltbook](https://moltbook.com), the social network for AI agents.
+# 🦞 OpenMolt
 
-## Features
+**Like [OpenClaw](https://github.com/openclaw/openclaw), but for Moltbook.**
 
-- **Full Moltbook API Integration** - Posts, comments, DMs, voting, following, submolts
-- **Multi-Provider LLM Support** - OpenRouter (cloud) or Ollama (local)
-- **Agentic Tool Execution** - Agent decides what to do autonomously
-- **Persistent Memory** - Letta-style memory with archival and buffer
-- **Web Search** - Serper integration for research
-- **Discord Notifications** - Real-time updates via webhooks
-- **Web Dashboard** - Monitor your bot's activity
-- **Self-Awareness** - Tracks own posts/comments, respects cooldowns
+*A fully autonomous AI agent for [Moltbook](https://moltbook.com) - the social network where AI agents live, post, comment, and build communities.*
 
-## Versions
+[![GitHub Stars](https://img.shields.io/github/stars/xsploit/OpenMolt?style=flat-square)](https://github.com/xsploit/OpenMolt/stargazers)
+[![License](https://img.shields.io/badge/license-Open%20Source-blue?style=flat-square)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.7+-blue?style=flat-square&logo=python)](https://www.python.org)
+[![Moltbook](https://img.shields.io/badge/platform-Moltbook-orange?style=flat-square)](https://moltbook.com)
 
-- **`python-bot/`** - Original version
-- **`python-bot-v2/`** - Latest version (recommended)
+[Features](#-features) • [Quick Start](#-quick-start) • [Documentation](#-documentation) • [Dashboard](#-dashboard) • [Contributing](#-contributing)
 
-## Quick Start
+</div>
 
-### 1. Clone and Setup
+---
+
+## 🎯 What is OpenMolt?
+
+OpenMolt is an **autonomous AI agent** that lives on Moltbook. It's self-hosted, fully autonomous, and makes its own decisions about what to post, who to follow, and how to engage with the community.
+
+Think of it as your AI representative on the social network for AI agents - it doesn't need constant human supervision, it just... exists and interacts.
+
+### Why OpenMolt?
+
+- 🤖 **Fully Autonomous** - Makes its own decisions using agentic reasoning
+- 🏠 **Self-Hosted** - Run on your hardware, with your API keys
+- 🧠 **Smart Memory** - Letta-style memory system with archival and working memory
+- 🎭 **Personality-Driven** - Define your agent's personality via markdown
+- 📊 **Real-Time Dashboard** - Monitor your agent's activity live
+- 🔍 **Web-Connected** - Can research topics before posting
+- 🛡️ **Self-Aware** - Tracks cooldowns, avoids self-interaction
+
+---
+
+## ✨ Features
+
+<table>
+<tr>
+<td width="50%">
+
+### 🌐 Full Moltbook Integration
+- Create posts & comments
+- Upvote/downvote content
+- Follow agents & subscribe to submolts
+- Send & receive DMs
+- Create & moderate communities
+- Pin posts, manage moderation
+
+</td>
+<td width="50%">
+
+### 🧠 Intelligent Agent
+- Multi-provider LLM (OpenRouter/Ollama)
+- Agentic tool execution loop
+- Persistent memory system
+- Web search via Serper API
+- Context-aware decision making
+- Self-learning from interactions
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+### 📊 Monitoring & Control
+- Auto-start web dashboard
+- Real-time activity feed
+- Discord webhook notifications
+- State persistence
+- Cooldown management
+- Rate limit handling
+
+</td>
+<td width="50%">
+
+### 🎨 Customization
+- Persona-based personalities
+- Custom instruction docs
+- Configurable poll intervals
+- Flexible LLM backends
+- Multi-account support
+- Community templates
+
+</td>
+</tr>
+</table>
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Python 3.7 or higher
+- Moltbook API key ([register here](https://moltbook.com))
+- OpenRouter or Ollama for LLM (OpenRouter recommended)
+
+### Installation
 
 ```bash
-git clone https://github.com/yourusername/OpenMolt.git
+# Clone the repository
+git clone https://github.com/xsploit/OpenMolt.git
 cd OpenMolt/python-bot-v2
 
-# Copy example config
+# Copy example configuration
 cp config.example.json config.json
-```
 
-### 2. Configure
-
-Edit `config.json` with your API keys:
-
-- **Moltbook API Key** - Get from [moltbook.com](https://moltbook.com) or run `python main.py --register`
-- **OpenRouter API Key** (optional) - For cloud LLM: [openrouter.ai](https://openrouter.ai)
-- **Serper API Key** (optional) - For web search: [serper.dev](https://serper.dev)
-- **Discord Webhook** (optional) - For notifications
-
-Or run the interactive setup:
-
-```bash
+# Edit config.json with your API keys
+# OR use the interactive setup wizard
 python main.py --setup
 ```
 
-### 3. Run
+### Configuration
+
+Edit `config.json` with your credentials:
+
+```json
+{
+  "moltbook_api_key": "moltbook_sk_YOUR_KEY_HERE",
+  "openrouter_api_key": "sk-or-v1-YOUR_KEY_HERE",
+  "openrouter_model": "anthropic/claude-3.5-sonnet",
+  "brain_use_openrouter": true,
+  "persona": "your_agent_name",
+  "poll_minutes": 5,
+  "discord_webhook_url": "https://discord.com/api/webhooks/..."
+}
+```
+
+**Key Configuration:**
+- `moltbook_api_key` - Get from Moltbook or run `python main.py --register`
+- `openrouter_api_key` - Get from [openrouter.ai](https://openrouter.ai)
+- `serper_api_key` - (Optional) Get from [serper.dev](https://serper.dev) for web search
+- `discord_webhook_url` - (Optional) For real-time notifications
+
+### Run Your Agent
 
 ```bash
-# Run the bot
+# Start your agent
 python main.py
 
-# Run once and exit (for testing)
+# Run a single cycle (for testing)
 python main.py --once
 
-# Register a new agent
+# Register a new Moltbook agent
 python main.py --register
 ```
 
-### 4. Dashboard
+---
 
-Visit http://127.0.0.1:8765/ while the bot is running to see the web dashboard.
+## 📊 Dashboard
 
-## Configuration
+OpenMolt includes a **live web dashboard** that auto-starts when you run your agent.
 
-See `config.example.json` for all available options:
+**Access:** http://127.0.0.1:8765/
 
-- **LLM Provider** - Choose OpenRouter (cloud) or Ollama (local)
-- **Persona** - Bot personality (create `personas/yourname.md`)
-- **Poll Interval** - How often to check Moltbook
-- **Auto-accept DMs** - Automatically approve DM requests
+**Features:**
+- Real-time activity feed
+- Post & comment history
+- DM conversations viewer
+- Feed browser
+- Agent statistics
+- Manual controls (pause/resume, delete posts)
 
-## Persona
+---
 
-Create a persona file in `personas/yourname.md` to define your bot's personality. Examples included.
+## 🎭 Creating Your Agent's Personality
 
-## Documentation
+Create a persona file at `personas/your_agent_name.md`:
 
-- `HEARTBEAT.md` - How the bot checks Moltbook
-- `MESSAGING.md` - DM handling
-- `SKILL.md` - Moltbook API reference
-- `SAFETY.md` - Safety guidelines
+```markdown
+# Your Agent Name
 
-## Requirements
+You are a helpful AI agent who loves discussing technology and science.
 
-- Python 3.7+
-- See individual bot directories for dependencies
+## Personality Traits
+- Curious and inquisitive
+- Loves asking questions
+- Shares interesting discoveries
+- Friendly and approachable
 
-## Security
+## Topics You Care About
+- AI and machine learning
+- Space exploration
+- Open source software
+- Philosophy of mind
 
-**NEVER commit sensitive files:**
-- `config.json` (contains API keys)
-- `bot-state.json` (bot state)
-- `memory.json` (memory data)
-- `*.log` (may contain sensitive data)
+## Communication Style
+- Casual but thoughtful
+- Uses questions to engage
+- Shares sources when making claims
+- Admits when uncertain
+```
 
-These are excluded via `.gitignore`.
+Then set `"persona": "your_agent_name"` in your config.
 
-## License
+---
+
+## 🏗️ Architecture
+
+```
+┌─────────────────────────────────────────────┐
+│         Agent Decision Loop (main.py)       │
+│  ┌───────────┐      ┌─────────────────┐   │
+│  │ LLM Brain │◄────►│ Tool Registry   │   │
+│  └───────────┘      └─────────────────┘   │
+│        ▲                     │              │
+│        │                     ▼              │
+│   ┌────────────┐      ┌──────────────┐    │
+│   │   Memory   │      │ Moltbook API │    │
+│   │  (Letta)   │      │   (50+ tools)│    │
+│   └────────────┘      └──────────────┘    │
+└─────────────────────────────────────────────┘
+         │                      │
+         ▼                      ▼
+  ┌────────────┐        ┌──────────────┐
+  │ Dashboard  │        │  Moltbook    │
+  │  (Web UI)  │        │  Platform    │
+  └────────────┘        └──────────────┘
+```
+
+**Core Components:**
+- **Agent Loop** - Polls Moltbook, decides actions autonomously
+- **LLM Brain** - OpenRouter or Ollama for reasoning
+- **Tool Registry** - 50+ Moltbook API tools available to agent
+- **Memory System** - Letta-style archival + working memory
+- **State Manager** - Tracks posts, cooldowns, interactions
+- **Dashboard Server** - Real-time monitoring and control
+
+---
+
+## 📚 Documentation
+
+| File | Description |
+|------|-------------|
+| [`docs/HEARTBEAT.md`](python-bot-v2/docs/HEARTBEAT.md) | How the autonomous loop works |
+| [`docs/SKILL.md`](python-bot-v2/docs/SKILL.md) | Complete Moltbook API reference |
+| [`docs/MESSAGING.md`](python-bot-v2/docs/MESSAGING.md) | DM handling and conversations |
+| [`docs/SAFETY.md`](python-bot-v2/docs/SAFETY.md) | Safety guidelines and best practices |
+| [`config.example.json`](python-bot-v2/config.example.json) | Full configuration reference |
+
+---
+
+## 🛠️ Advanced Usage
+
+### Using Local LLM (Ollama)
+
+```json
+{
+  "brain_use_openrouter": false,
+  "ollama_base_url": "http://localhost:11434/v1",
+  "ollama_model": "qwen3:4b"
+}
+```
+
+### Multiple Agents
+
+Run multiple agents by creating separate directories with different configs:
+
+```bash
+cp -r python-bot-v2 agent1
+cp -r python-bot-v2 agent2
+# Configure each with different personas and API keys
+```
+
+### Web Search Integration
+
+Enable web search for your agent to research before posting:
+
+```json
+{
+  "serper_api_key": "your_serper_key_here"
+}
+```
+
+Tools automatically enabled:
+- `web_search()` - Google search
+- `web_news()` - Recent news
+- `scrape_page()` - Read articles
+- `research_topic()` - Deep research
+
+---
+
+## 🔒 Security & Privacy
+
+**Protected Data (never committed):**
+- ✅ `config.json` - Your API keys
+- ✅ `bot-state.json` - Agent state
+- ✅ `memory.json` - Memory data
+- ✅ `*.log` - Log files
+
+**What's Shared:**
+- ✅ Source code
+- ✅ Documentation
+- ✅ Example configs (no secrets)
+- ✅ Persona templates
+
+**Best Practices:**
+- Never share your `moltbook_api_key`
+- Use environment variables for CI/CD
+- Rotate keys if accidentally exposed
+- Review `.gitignore` before pushing
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Here's how you can help:
+
+- 🐛 **Report Bugs** - Open an issue with reproduction steps
+- ✨ **Suggest Features** - Share ideas for new capabilities
+- 📝 **Improve Docs** - Help make documentation clearer
+- 🎨 **Add Personas** - Share interesting persona templates
+- 🔧 **Submit PRs** - Code improvements and bug fixes
+
+**Development Setup:**
+```bash
+git clone https://github.com/xsploit/OpenMolt.git
+cd OpenMolt/python-bot-v2
+# Make your changes
+git checkout -b feature/your-feature
+git commit -m "Add your feature"
+git push origin feature/your-feature
+```
+
+---
+
+## 🌟 Inspiration
+
+OpenMolt is inspired by [**OpenClaw**](https://github.com/openclaw/openclaw) - the open-source personal AI assistant you run on your own devices. We bring that same philosophy of **autonomous, self-hosted AI** to the Moltbook platform.
+
+**Like OpenClaw:**
+- ✅ Fully autonomous agent architecture
+- ✅ Self-hosted and privacy-respecting
+- ✅ Extensible tool system
+- ✅ Multi-provider LLM support
+
+**But for Moltbook:**
+- 🦞 Social network interactions
+- 💬 Community engagement
+- 📝 Content creation & curation
+- 🤝 Agent-to-agent networking
+
+---
+
+## 📜 License
 
 Open source - do what you want with it!
 
-## Contributing
+---
 
-PRs welcome! This is a community project.
+## 💎 Credits
 
-## Credits
+<table>
+<tr>
+<td align="center">
+<strong>Built With</strong><br>
+<a href="https://github.com/openresponses">OpenResponses SDK</a>
+</td>
+<td align="center">
+<strong>Powered By</strong><br>
+<a href="https://moltbook.com">Moltbook API</a>
+</td>
+<td align="center">
+<strong>Inspired By</strong><br>
+<a href="https://github.com/openclaw/openclaw">OpenClaw</a>
+</td>
+</tr>
+</table>
 
-Built on [OpenResponses SDK](https://github.com/openresponses) and the [Moltbook API](https://moltbook.com).
+---
+
+<div align="center">
+
+**[⬆ Back to Top](#-openmolt)**
+
+Made with 🦞 by the community
+
+</div>

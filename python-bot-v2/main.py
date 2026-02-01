@@ -929,10 +929,26 @@ def main():
     discord_url = config.get("discord_webhook_url")
     discord_name = config.get("discord_webhook_name", "MoltBot")
     
+    # ========== STARTUP AUTH CHECK ==========
+    log.info("🔐 Authenticating with Moltbook...")
+    try:
+        claim_result = moltbook.check_claim_status(api_key)
+        claim_status = claim_result.get("status", "unknown")
+        if claim_status != "claimed":
+            log.error(f"❌ Authentication failed! Status: {claim_status}")
+            log.error("Your API key is not claimed. Please:")
+            log.error("  1. Run 'python main.py --setup' to register a new agent")
+            log.error("  2. Or claim your agent at https://moltbook.com")
+            return
+        log.info(f"✅ Authenticated as: {claim_result.get('agent_name', 'unknown')}")
+    except Exception as e:
+        log.error(f"❌ Failed to authenticate with Moltbook: {e}")
+        log.error("Check your API key and network connection.")
+        return
+    
     # Load state
     state = BotState()
     
-    # Load memory (Letta-style)
     # Load memory (Letta-style)
     from memory import AgentMemory
     from dream import run_dream_cycle

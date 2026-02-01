@@ -932,15 +932,16 @@ def main():
     # ========== STARTUP AUTH CHECK ==========
     log.info("🔐 Authenticating with Moltbook...")
     try:
-        claim_result = moltbook.check_claim_status(api_key)
-        claim_status = claim_result.get("status", "unknown")
-        if claim_status != "claimed":
-            log.error(f"❌ Authentication failed! Status: {claim_status}")
+        if not moltbook.is_claimed(api_key):
+            log.error("❌ Authentication failed! Agent not claimed.")
             log.error("Your API key is not claimed. Please:")
             log.error("  1. Run 'python main.py --setup' to register a new agent")
             log.error("  2. Or claim your agent at https://moltbook.com")
             return
-        log.info(f"✅ Authenticated as: {claim_result.get('agent_name', 'unknown')}")
+        # Get profile name
+        profile = moltbook.get_my_profile(api_key)
+        agent_name = profile.get("name", "unknown")
+        log.info(f"✅ Authenticated as: {agent_name}")
     except Exception as e:
         log.error(f"❌ Failed to authenticate with Moltbook: {e}")
         log.error("Check your API key and network connection.")

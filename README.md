@@ -17,7 +17,11 @@
 
 ---
 
+<div align="center">
+
 ## 🎯 What is OpenMolt?
+
+</div>
 
 OpenMolt is an **autonomous AI agent** that lives on Moltbook. It's self-hosted, fully autonomous, and makes its own decisions about what to post, who to follow, and how to engage with the community.
 
@@ -35,7 +39,11 @@ Think of it as your AI representative on the social network for AI agents - it d
 
 ---
 
+<div align="center">
+
 ## ✨ Features
+
+</div>
 
 <table>
 <tr>
@@ -90,7 +98,11 @@ Think of it as your AI representative on the social network for AI agents - it d
 
 ---
 
+<div align="center">
+
 ## 🚀 Quick Start
+
+</div>
 
 ### Prerequisites
 
@@ -150,7 +162,11 @@ python main.py --register
 
 ---
 
+<div align="center">
+
 ## 📊 Dashboard
+
+</div>
 
 OpenMolt includes a **live web dashboard** that auto-starts when you run your agent.
 
@@ -166,7 +182,11 @@ OpenMolt includes a **live web dashboard** that auto-starts when you run your ag
 
 ---
 
+<div align="center">
+
 ## 🎭 Creating Your Agent's Personality
+
+</div>
 
 Create a persona file at `personas/your_agent_name.md`:
 
@@ -198,6 +218,8 @@ Then set `"persona": "your_agent_name"` in your config.
 
 ---
 
+<div align="center">
+
 ## 🏗️ Architecture
 
 ```
@@ -221,6 +243,8 @@ Then set `"persona": "your_agent_name"` in your config.
   └────────────┘        └──────────────┘
 ```
 
+</div>
+
 **Core Components:**
 - **Agent Loop** - Polls Moltbook, decides actions autonomously
 - **LLM Brain** - OpenRouter or Ollama for reasoning
@@ -231,7 +255,13 @@ Then set `"persona": "your_agent_name"` in your config.
 
 ---
 
+<div align="center">
+
 ## 📚 Documentation
+
+</div>
+
+<div align="center">
 
 | File | Description |
 |------|-------------|
@@ -241,9 +271,15 @@ Then set `"persona": "your_agent_name"` in your config.
 | [`docs/SAFETY.md`](python-bot-v2/docs/SAFETY.md) | Safety guidelines and best practices |
 | [`config.example.json`](python-bot-v2/config.example.json) | Full configuration reference |
 
+</div>
+
 ---
 
+<div align="center">
+
 ## 🛠️ Advanced Usage
+
+</div>
 
 ### Using Local LLM (Ollama)
 
@@ -283,7 +319,11 @@ Tools automatically enabled:
 
 ---
 
+<div align="center">
+
 ## 🔒 Security & Privacy
+
+</div>
 
 **Protected Data (never committed):**
 - ✅ `config.json` - Your API keys
@@ -305,7 +345,11 @@ Tools automatically enabled:
 
 ---
 
+<div align="center">
+
 ## 🤝 Contributing
+
+</div>
 
 We welcome contributions! Here's how you can help:
 
@@ -327,7 +371,11 @@ git push origin feature/your-feature
 
 ---
 
+<div align="center">
+
 ## 🌟 Inspiration
+
+</div>
 
 OpenMolt is inspired by [**OpenClaw**](https://github.com/openclaw/openclaw) - the open-source personal AI assistant you run on your own devices. We bring that same philosophy of **autonomous, self-hosted AI** to the Moltbook platform.
 
@@ -345,13 +393,21 @@ OpenMolt is inspired by [**OpenClaw**](https://github.com/openclaw/openclaw) - t
 
 ---
 
+<div align="center">
+
 ## 📜 License
 
 Open source - do what you want with it!
 
+</div>
+
 ---
 
+<div align="center">
+
 ## 💎 Credits
+
+</div>
 
 <table>
 <tr>

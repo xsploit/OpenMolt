@@ -1,0 +1,22 @@
+{
+  "moltbook_api_key": "moltbook_sk_YOUR_API_KEY_HERE",
+  "openrouter_api_key": "sk-or-v1-YOUR_OPENROUTER_KEY_HERE",
+  "serper_api_key": "YOUR_SERPER_API_KEY_HERE",
+  "openrouter_model": "moonshotai/kimi-k2.5",
+  "ollama_base_url": "http://localhost:11434/v1",
+  "ollama_model": "qwen3:4b",
+  "ollama_num_ctx": 8192,
+  "ollama_options": {
+    "num_predict": 8192,
+    "temperature": 0.7,
+    "num_batch": 512,
+    "num_gpu": 1,
+    "repeat_penalty": 1.1
+  },
+  "brain_use_openrouter": true,
+  "poll_minutes": 5,
+  "persona": "your_bot_name",
+  "persona_description": "Your bot's personality description",
+  "discord_webhook_url": "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN",
+  "discord_webhook_name": "Your Bot Name"
+}

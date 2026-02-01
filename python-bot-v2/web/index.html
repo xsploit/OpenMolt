@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Moltbook Bot Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      /* Palette: Forged Articulation Chamber */
+      --bg-void: #030406;
+      --bg-panel: #0a0c10;
+      --bg-card: #0f1218;
+      --bg-card-hover: #141922;
+      --border-steel: #1e2530;
+      --border-active: #2d3648;
+      
+      /* Accents */
+      --accent-crab: #eb2b08;
+      
+      --accent-crab-dim: #ef4444;
+      --accent-plasma: #6366f1;
+      --accent-glow: rgba(255, 77, 46, 0.2);
+      --accent-glow-soft: rgba(255, 77, 46, 0.06);
+      
+      /* States */
+      --success: #22c55e;
+      --success-dim: rgba(34, 197, 94, 0.15);
+      --warn: #f59e0b;
+      --error: #ef4444;
+      --muted: #64748b;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+
+      /* Dimensions */
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --radius-xl: 20px;
+      --space-xs: 0.5rem;
+      --space-sm: 1rem;
+      --space-md: 1.5rem;
+    }
+
+    * { box-sizing: border-box; }
+    
+    body {
+      font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+      background: var(--bg-void);
+      background-image: 
+        radial-gradient(ellipse 120% 80% at 50% -20%, rgba(255, 77, 46, 0.06), transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.04), transparent 35%),
+        linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+      color: var(--text-primary);
+      margin: 0;
+      padding: 0;
+      line-height: 1.55;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .app-shell {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: var(--space-md);
+      width: 100%;
+      flex: 1;
+    }
+
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--space-md);
+      padding: var(--space-sm) 0;
+      border-bottom: 1px solid var(--border-steel);
+      gap: 1rem;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      margin: 0;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      letter-spacing: -0.03em;
+    }
+    
+    h1::before {
+      content: '🦞';
+      display: inline-block;
+      font-size: 1.5rem;
+      line-height: 1;
+      margin-right: 0.25rem;
+      -webkit-text-stroke: 2px rgba(0, 0, 0, 0.85);
+    }
+
+    .tabs {
+      display: flex;
+      gap: 2px;
+      background: var(--bg-panel);
+      padding: 5px;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-steel);
+      overflow-x: auto;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+    }
+
+    .tabs button {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      padding: 0.55rem 1.1rem;
+      border-radius: var(--radius-md);
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+      white-space: nowrap;
+      font-family: inherit;
+    }
+
+    .tabs button:hover {
+      color: var(--text-primary);
+      background: rgba(255,255,255,0.04);
+    }
+
+    .tabs button.active {
+      background: var(--bg-card);
+      color: var(--text-primary);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25), 0 0 0 1px var(--border-active);
+    }
+
+    .controls {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: var(--space-md);
+      font-size: 0.875rem;
+    }
+
+    .refresh {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    button.action-btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border-steel);
+      color: var(--text-primary);
+      padding: 0.45rem 0.9rem;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 600;
+      font-family: inherit;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
+    }
+
+    button.action-btn:hover {
+      border-color: var(--accent-crab);
+      color: var(--accent-crab);
+      background: var(--accent-glow-soft);
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-steel);
+      border-radius: var(--radius-lg);
+      padding: var(--space-md);
+      margin-bottom: var(--space-md);
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .card:hover {
+      border-color: var(--border-active);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
+      opacity: 0.8;
+    }
+
+    .panel-title {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: var(--space-sm);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-steel);
+      padding-bottom: 0.6rem;
+    }
+
+    .hud-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1px;
+      background: var(--border-steel);
+      border: 1px solid var(--border-steel);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      margin-bottom: var(--space-md);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+    }
+
+    .hud-cell {
+      background: var(--bg-card);
+      padding: 1.1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      transition: background 0.2s;
+    }
+
+    .hud-cell:hover {
+      background: var(--bg-card-hover);
+    }
+
+    .hud-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      font-weight: 600;
+    }
+
+    .hud-value {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', 'Courier New', monospace;
+      letter-spacing: 0.02em;
+    }
+    
+    .status-claimed { color: var(--success); text-shadow: 0 0 12px rgba(34, 197, 94, 0.35); }
+    .status-pending_claim { color: var(--warn); }
+
+    #lastAction {
+      border-left: 4px solid var(--accent-crab);
+      background: linear-gradient(90deg, var(--accent-glow-soft) 0%, transparent 40%);
+      box-shadow: 0 0 30px rgba(255, 77, 46, 0.08);
+    }
+
+    .grid2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-md);
+    }
+    @media (max-width: 768px) {
+      .grid2 { grid-template-columns: 1fr; }
+      header { flex-direction: column; align-items: stretch; gap: 1rem; }
+      .controls { justify-content: space-between; }
+    }
+
+    .notif-list, .dm-list {
+      max-height: 300px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-active) var(--bg-panel);
+    }
+
+    .notif-item, .dm-item {
+      padding: 0.85rem 0;
+      border-bottom: 1px solid var(--border-steel);
+      transition: background 0.15s;
+    }
+    .notif-item:hover, .dm-item:hover {
+      background: rgba(255,255,255,0.02);
+    }
+    .notif-item:last-child, .dm-item:last-child { border-bottom: none; }
+
+    .notif-item.unread {
+      border-left: 3px solid var(--accent-plasma);
+      padding-left: 0.85rem;
+      margin-left: -1px;
+      background: linear-gradient(90deg, rgba(99, 102, 241, 0.06), transparent);
+    }
+
+    .meta { font-size: 0.8rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    th {
+      text-align: left;
+      padding: 0.85rem 1rem;
+      background: var(--bg-panel);
+      color: var(--text-secondary);
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      border-bottom: 2px solid var(--border-steel);
+    }
+    td {
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--border-steel);
+      color: var(--text-primary);
+      transition: background 0.15s;
+    }
+    tbody tr:hover td {
+      background: rgba(255,255,255,0.02);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.2rem 0.55rem;
+      border-radius: 99px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .badge-post { background: rgba(59, 130, 246, 0.18); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.35); }
+    .badge-comment { background: rgba(139, 92, 246, 0.18); color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.35); }
+    .badge-upvote { background: rgba(34, 197, 94, 0.18); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.35); }
+    .badge-dm_reply { background: rgba(13, 148, 136, 0.18); color: #2dd4bf; border: 1px solid rgba(13, 148, 136, 0.35); }
+    .badge-error { background: rgba(239, 68, 68, 0.18); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.35); }
+
+    .badge-count {
+      background: linear-gradient(135deg, var(--accent-crab), var(--accent-crab-dim));
+      color: #fff;
+      font-size: 0.7rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 99px;
+      font-weight: 700;
+      box-shadow: 0 2px 8px var(--accent-glow);
+    }
+
+    a { color: var(--accent-crab); text-decoration: none; transition: color 0.2s; font-weight: 500; }
+    a:hover { color: #ff7e66; text-decoration: underline; }
+
+    .profile-grid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 1rem 2rem;
+      font-size: 0.9rem;
+    }
+    .profile-grid .label { color: var(--muted); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; }
+    
+    .errors {
+      color: var(--error);
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      padding: 0.65rem 1rem;
+      border-radius: var(--radius-md);
+      margin-top: 0.5rem;
+      font-size: 0.8rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .snippet {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--muted);
+      font-size: 0.8rem;
+      max-width: 30ch;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      display: inline-block;
+      vertical-align: bottom;
+    }
+
+    .admin-actions button {
+      padding: 0.6rem 1.2rem;
+      border-radius: var(--radius-md);
+      border: 1px solid transparent;
+      font-weight: 600;
+      cursor: pointer;
+      text-transform: uppercase;
+      font-size: 0.78rem;
+      letter-spacing: 0.05em;
+      font-family: inherit;
+      transition: background 0.2s, color 0.2s, transform 0.1s;
+    }
+    .admin-actions button:hover { transform: translateY(-1px); }
+    .admin-actions button.danger {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--error);
+      border-color: rgba(239, 68, 68, 0.4);
+    }
+    .admin-actions button.danger:hover { background: var(--error); color: white; border-color: var(--error); }
+    
+    .admin-actions button.success {
+      background: var(--success-dim);
+      color: var(--success);
+      border-color: rgba(34, 197, 94, 0.4);
+    }
+    .admin-actions button.success:hover { background: var(--success); color: white; border-color: var(--success); }
+
+    .feed-item, .submolt-item {
+      padding: 1rem 0;
+      border-bottom: 1px solid var(--border-steel);
+      transition: background 0.15s;
+    }
+    .feed-item:hover, .submolt-item:hover { background: rgba(255,255,255,0.02); }
+    .feed-item:last-child, .submolt-item:last-child { border-bottom: none; }
+
+    .dm-messages .dm-msg { margin-bottom: 0.75rem; padding: 0.5rem 0.75rem; border-radius: var(--radius-md); max-width: 85%; }
+    .dm-messages .dm-msg.msg-them { background: var(--bg-panel); border: 1px solid var(--border-steel); margin-right: auto; }
+    .dm-messages .dm-msg.msg-me { background: var(--accent-glow-soft); border: 1px solid var(--border-active); margin-left: auto; }
+    .dm-messages .dm-msg .dm-msg-meta { font-size: 0.7rem; color: var(--muted); margin-bottom: 0.25rem; }
+    .dm-conversations-list .dm-conv-item { padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border-steel); cursor: pointer; transition: background 0.15s; }
+    .dm-conversations-list .dm-conv-item:hover { background: rgba(255,255,255,0.04); }
+    .dm-conversations-list .dm-conv-item.selected { background: var(--accent-glow-soft); border-left: 3px solid var(--accent-crab); }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { 
+      display: block; 
+      animation: fadeIn 0.25s ease;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: var(--bg-void); }
+    ::-webkit-scrollbar-thumb { background: var(--border-active); border-radius: 5px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+  </style>
+</head>
+<body>
+
+<div class="app-shell">
+  <header>
+    <h1>Moltbook Operations</h1>
+    <div class="tabs">
+      <button type="button" data-tab="overview" class="active">Command</button>
+      <button type="button" data-tab="profile">Profile</button>
+      <button type="button" data-tab="feed">Feed</button>
+      <button type="button" data-tab="submolts">Communities</button>
+      <button type="button" data-tab="dms">DMs</button>
+      <button type="button" data-tab="admin">System</button>
+    </div>
+  </header>
+
+  <div class="controls">
+    <div class="refresh">
+      <span id="lastFetch" class="meta">Initializing...</span>
+      <button type="button" id="btnRefresh" class="action-btn">⟳ Refresh Data</button>
+    </div>
+  </div>
+
+  <!-- OVERVIEW TAB -->
+  <div id="tab-overview" class="tab-panel active">
+    
+    <!-- Status HUD -->
+    <div class="hud-grid">
+      <div class="hud-cell">
+        <span class="hud-label">Agent Identity</span>
+        <span class="hud-value" id="agentName">-</span>
+      </div>
+      <div class="hud-cell">
+        <span class="hud-label">Link Status</span>
+        <span class="hud-value" id="statusSummary">-</span>
+      </div>
+      <div class="hud-cell">
+        <span class="hud-label">Last Cycle</span>
+        <span class="hud-value" id="lastRun">-</span>
+      </div>
+      <div class="hud-cell">
+        <span class="hud-label">Post Timer</span>
+        <span class="hud-value" id="lastPostAt">-</span>
+        <span class="meta" id="lastPostMeta">30m cooldown</span>
+      </div>
+      <div class="hud-cell">
+        <span class="hud-label">Comment Timer</span>
+        <span class="hud-value" id="lastCommentAt">-</span>
+        <span class="meta" id="lastCommentMeta">20s cooldown</span>
+      </div>
+    </div>
+    <div id="errorsBox" class="errors" style="display:none;"></div>
+
+    <!-- Last Action Highlight -->
+    <div id="lastAction" class="card" style="display:none;">
+      <div class="panel-title">Latest Execution</div>
+      <div id="lastActionBody" style="font-family: monospace; font-size: 0.9rem;"></div>
+    </div>
+
+    <div class="grid2">
+      <!-- Notifications -->
+      <div class="card">
+        <div class="panel-title">
+          <span>Notifications <span id="notifBadge" class="badge-count" style="display:none;">0</span></span>
+          <button type="button" id="btnMarkRead" class="action-btn" style="font-size:0.7rem;">Ack All</button>
+        </div>
+        <div class="notif-list" id="notifList"></div>
+        <div id="noNotifs" class="meta" style="display:none; padding:1rem;">All systems quiet.</div>
+      </div>
+
+      <!-- DM Inbox Summary -->
+      <div class="card">
+        <div class="panel-title">
+          <span>Encrypted Comms</span>
+          <a href="https://www.moltbook.com" target="_blank" rel="noopener" style="font-size:0.8rem;">Open Moltbook ↗</a>
+        </div>
+        <div style="padding: 0.5rem 0;">
+            <div id="dmInboxSummary" class="meta" style="display:none;margin-bottom:0.5rem; color: var(--text-primary);"></div>
+            <div id="dmInboxActionHint" class="meta" style="display:none;margin-bottom:0.5rem;color:var(--warn); border: 1px solid var(--warn); padding: 0.5rem; border-radius: var(--radius-sm);">Pending Request: Human input required on Moltbook.</div>
+            <div id="dmInboxContent">
+            <div id="dmInboxList" class="dm-list"></div>
+            <div id="dmInboxEmpty" class="meta" style="display:none; padding: 1rem;">No active encrypted channels.</div>
+            <div id="dmInboxRaw" class="dm-raw" style="display:none;"></div>
+            </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action Log -->
+    <div class="card">
+      <div class="panel-title">Operational Log</div>
+      <div style="overflow-x: auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Op Code</th>
+              <th>Target ID</th>
+              <th>Context</th>
+              <th>Snippet</th>
+              <th>Override</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody"></tbody>
+        </table>
+      </div>
+      <div id="noHistory" class="meta" style="display:none; padding: 1rem;">Log empty. Awaiting first cycle.</div>
+    </div>
+  </div>
+
+  <!-- PROFILE TAB -->
+  <div id="tab-profile" class="tab-panel">
+    <div class="card">
+      <div class="panel-title">Agent Profile Data (/api/me)</div>
+      <div id="profileContent" style="padding-top: 1rem;">Initializing...</div>
+      <div id="profileError" class="errors" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- FEED TAB -->
+  <div id="tab-feed" class="tab-panel">
+    <div class="card">
+      <div class="panel-title">Neural Feed Stream</div>
+      <div id="feedContent">Initializing...</div>
+      <div id="feedError" class="errors" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- SUBMOLTS TAB -->
+  <div id="tab-submolts" class="tab-panel">
+    <div class="card">
+      <div class="panel-title">Community Nodes</div>
+      <div id="submoltsContent">Initializing...</div>
+      <div id="submoltsError" class="errors" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- DMS TAB -->
+  <div id="tab-dms" class="tab-panel">
+    <div class="card">
+      <div class="panel-title">All DMs – list, read, reply</div>
+      <div id="dmsError" class="errors" style="display:none;"></div>
+      <div class="dms-layout" style="display:grid; grid-template-columns: 220px 1fr; gap: 1rem; min-height: 320px;">
+        <div class="dm-conversations-list" style="border-right: 1px solid var(--border-steel); overflow-y: auto; max-height: 400px;">
+          <div id="dmsConvList" class="dm-list"></div>
+          <div id="dmsConvEmpty" class="meta" style="padding: 1rem; display:none;">No conversations yet.</div>
+        </div>
+        <div class="dm-thread-wrap" style="display: flex; flex-direction: column;">
+          <div id="dmsThreadSummary" class="meta" style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-steel);"></div>
+          <div id="dmsThreadMessages" class="dm-messages" style="flex:1; overflow-y: auto; max-height: 260px; padding: 0.5rem 0;"></div>
+          <div id="dmsReplyArea" style="display:none; padding-top: 0.75rem; border-top: 1px solid var(--border-steel);">
+            <textarea id="dmReplyText" placeholder="Type a reply as the agent..." rows="2" style="width:100%; resize:vertical; background: var(--bg-panel); border: 1px solid var(--border-steel); border-radius: var(--radius-sm); color: var(--text-primary); padding: 0.5rem; font-family: inherit; margin-bottom: 0.5rem;"></textarea>
+            <div style="display:flex; gap: 0.5rem;">
+              <button type="button" id="dmSendBtn" class="action-btn">Send</button>
+              <button type="button" id="dmAiReplyBtn" class="action-btn" style="border-color: var(--accent-plasma); color: var(--accent-plasma);">AI reply</button>
+            </div>
+          </div>
+          <div id="dmsThreadEmpty" class="meta" style="padding: 1rem;">Select a conversation.</div>
+        </div>
+      </div>
+      <div class="panel-title" style="margin-top: 1rem;">Pending requests (approve / reject)</div>
+      <div id="dmsSummary" class="meta" style="margin-bottom:0.5rem;"></div>
+      <div id="dmsContent"></div>
+    </div>
+  </div>
+
+  <!-- ADMIN TAB -->
+  <div id="tab-admin" class="tab-panel">
+    <div class="card">
+      <div class="panel-title">System Administration</div>
+      <div style="padding: 1rem 0;">
+        <div id="adminPaused" class="meta" style="margin-bottom:1rem; font-size: 1rem; color: var(--text-primary);"></div>
+        <div class="admin-actions">
+            <button type="button" id="btnPause" class="danger">⚠ SUSPEND PROCESS</button>
+            <button type="button" id="btnResume" class="success">▶ RESUME PROCESS</button>
+        </div>
+      </div>
+      
+      <div class="panel-title" style="margin-top:2rem;">Configuration Parameters</div>
+      <div id="adminConfig" class="meta" style="font-family: monospace; background: var(--bg-panel); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-steel);"></div>
+      <div id="adminError" class="errors" style="display:none;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+    var POST_BASE = 'https://www.moltbook.com/post/';
+    var READ_KEY = 'moltbook_dashboard_read_ts';
+     function load() {
+      fetch('dashboard.json').then(function(r) {
+        if (!r.ok) {
+          return { agent_name: '', last_run: null, status_summary: '', last_action: null, actions_history: [], errors: [], dm_inbox: null, notifications: [] };
+        }
+        return r.text().then(function(t) {
+          try { return JSON.parse(t); } catch (e) { return { agent_name: '', last_run: null, status_summary: '', last_action: null, actions_history: [], errors: [], dm_inbox: null, notifications: [] }; }
+        });
+      }).then(function(d) {
+        document.getElementById('lastFetch').textContent = 'Synced: ' + new Date().toLocaleTimeString();
+        document.getElementById('agentName').textContent = d.agent_name || '-';
+        var statusEl = document.getElementById('statusSummary');
+        statusEl.textContent = d.status_summary || '-';
+        statusEl.className = 'hud-value ' + (d.status_summary === 'claimed' ? 'status-claimed' : 'status-pending_claim');
+        document.getElementById('lastRun').textContent = d.last_run ? formatTs(d.last_run) : '-';
+        document.getElementById('lastPostAt').textContent = d.last_post_at ? formatTs(d.last_post_at) : 'NEVER';
+        document.getElementById('lastCommentAt').textContent = d.last_comment_at ? formatTs(d.last_comment_at) : 'NEVER';
+        var errs = d.errors || [];
+        var errBox = document.getElementById('errorsBox');
+        if (errs.length) {
+          errBox.style.display = 'block';
+          errBox.textContent = 'SYSTEM ERR: ' + errs.slice(-5).join(' | ');
+        } else {
+          errBox.style.display = 'none';
+        }
+        var last = d.last_action;
+        var lastCard = document.getElementById('lastAction');
+        if (last && (last.action || last.post_id)) {
+          lastCard.style.display = 'block';
+          document.getElementById('lastActionBody').innerHTML = renderAction(last, true);
+        } else {
+          lastCard.style.display = 'none';
+        }
+        var hist = d.actions_history || [];
+        var tbody = document.getElementById('historyBody');
+        var noHist = document.getElementById('noHistory');
+        if (hist.length === 0) {
+          tbody.innerHTML = '';
+          noHist.style.display = 'block';
+        } else {
+          noHist.style.display = 'none';
+          tbody.innerHTML = hist.map(function(a) { return '<tr>' + renderActionRow(a) + '</tr>'; }).join('');
+          tbody.querySelectorAll('button[data-delete-post]').forEach(function(btn) {
+            btn.onclick = function() {
+              var pid = btn.getAttribute('data-delete-post');
+              if (!pid || !confirm('Delete this post?')) return;
+              apiPost('/api/delete_post', { post_id: pid }).then(function(r) {
+                if (r.error) alert(r.error); else load();
+              });
+            };
+          });
+          tbody.querySelectorAll('button[data-delete-comment]').forEach(function(btn) {
+            btn.onclick = function() {
+              var cid = btn.getAttribute('data-delete-comment');
+              if (!cid || !confirm('Delete this comment?')) return;
+              apiPost('/api/delete_comment', { comment_id: cid }).then(function(r) {
+                if (r.error) alert(r.error); else load();
+              });
+            };
+          });
+        }
+        renderNotifications(d.notifications || []);
+        renderDmInbox(d.dm_inbox);
+      }).catch(function(e) {
+        document.getElementById('lastFetch').textContent = 'Error: ' + e.message;
+        document.getElementById('agentName').textContent = '-';
+        document.getElementById('statusSummary').textContent = '-';
+        document.getElementById('lastRun').textContent = '-';
+        document.getElementById('lastPostAt').textContent = '-';
+        document.getElementById('lastCommentAt').textContent = '-';
+        document.getElementById('noHistory').style.display = 'block';
+        document.getElementById('noHistory').textContent = 'No data yet. Run the bot once to create dashboard.json.';
+      });
+    }
+     function getReadTs() {
+      try { return parseInt(localStorage.getItem(READ_KEY) || '0', 10); } catch (_) { return 0; }
+    }
+    function markAllRead() {
+      localStorage.setItem(READ_KEY, String(Date.now()));
+      load();
+    }
+     function renderNotifications(list) {
+      var container = document.getElementById('notifList');
+      var noNotifs = document.getElementById('noNotifs');
+      var badge = document.getElementById('notifBadge');
+      var readTs = getReadTs();
+      var unread = 0;
+      list.forEach(function(n) {
+        var ts = (n.ts && new Date(n.ts).getTime()) || 0;
+        if (!n.read && ts > readTs) unread++;
+      });
+      if (list.length === 0) {
+        container.innerHTML = '';
+        noNotifs.style.display = 'block';
+        badge.style.display = 'none';
+        return;
+      }
+      noNotifs.style.display = 'none';
+      if (unread > 0) {
+        badge.style.display = 'inline-block';
+        badge.textContent = unread > 99 ? '99+' : unread;
+      } else {
+        badge.style.display = 'none';
+      }
+      container.innerHTML = list.slice(0, 30).map(function(n) {
+        var ts = (n.ts && new Date(n.ts).getTime()) || 0;
+        var isUnread = !n.read && ts > readTs;
+        var typeClass = n.type === 'error' ? 'badge-error' : n.type === 'post' ? 'badge-post' : n.type === 'comment' ? 'badge-comment' : n.type === 'upvote' ? 'badge-upvote' : n.type === 'dm_reply' ? 'badge-dm_reply' : '';
+        var link = (n.link && n.link.trim()) ? '<a href="' + escapeAttr(n.link) + '" target="_blank" rel="noopener">View</a>' : '';
+        return '<div class="notif-item ' + (isUnread ? 'unread' : '') + '">' +
+          '<span class="notif-time" style="margin-right:0.5rem;">' + escapeHtml(formatTs(n.ts)) + '</span>' +
+          ' <span class="badge ' + typeClass + '">' + escapeHtml(n.type || '') + '</span> ' +
+          (link ? link + ' ' : '') +
+          '<div class="notif-title" style="margin-top:0.25rem;">' + escapeHtml(n.title || '') + '</div>' +
+          (n.body ? '<div class="notif-body">' + escapeHtml(n.body) + '</div>' : '') +
+          '</div>';
+      }).join('');
+    }
+     function renderDmInbox(dmInbox) {
+      var listEl = document.getElementById('dmInboxList');
+      var emptyEl = document.getElementById('dmInboxEmpty');
+      var rawEl = document.getElementById('dmInboxRaw');
+      var summaryEl = document.getElementById('dmInboxSummary');
+      var actionHintEl = document.getElementById('dmInboxActionHint');
+      listEl.style.display = 'none';
+      emptyEl.style.display = 'none';
+      rawEl.style.display = 'none';
+      if (summaryEl) summaryEl.style.display = 'none';
+      if (actionHintEl) actionHintEl.style.display = 'none';
+      if (typeof dmInbox === 'string') {
+        try { dmInbox = JSON.parse(dmInbox); } catch (e) { dmInbox = null; }
+      }
+      if (!dmInbox || typeof dmInbox !== 'object') {
+        emptyEl.style.display = 'block';
+        return;
+      }
+      var summary = dmInbox.summary || '';
+      var requestsItems = (dmInbox.requests && dmInbox.requests.items) ? dmInbox.requests.items : null;
+      var actionNeeded = dmInbox.requests && dmInbox.requests.action_needed;
+      var messagesObj = dmInbox.messages && typeof dmInbox.messages === 'object' ? dmInbox.messages : null;
+      var latestList = Array.isArray(messagesObj && messagesObj.latest) ? messagesObj.latest : null;
+      if (summary && summaryEl) {
+        summaryEl.textContent = summary + (actionNeeded ? ' (action needed)' : '');
+        summaryEl.style.display = 'block';
+      }
+      if (actionNeeded && actionHintEl) actionHintEl.style.display = 'block';
+      if (Array.isArray(requestsItems) && requestsItems.length > 0) {
+        listEl.style.display = 'block';
+        listEl.innerHTML = requestsItems.slice(0, 20).map(function(c) {
+          var from = c.from || c.sender || c.author || (c.user && c.user.name) || '?';
+          var name = typeof from === 'object' ? (from.name || from.username || 'Unknown') : from;
+          var body = c.message_preview || c.body || c.content || c.text || c.preview || '';
+          var ts = c.created_at || c.sent_at || c.ts || '';
+          return '<div class="dm-item">' +
+            '<span class="dm-time">' + escapeHtml(formatTs(ts)) + '</span>' +
+            ' <strong>' + escapeHtml(name) + '</strong>: ' +
+            escapeHtml((body + '').slice(0, 120)) + (body.length > 120 ? '...' : '') +
+            '</div>';
+        }).join('');
+        return;
+      }
+      var conversations = dmInbox.conversations || dmInbox.dms || dmInbox.conversation;
+      if (!Array.isArray(conversations) && Array.isArray(latestList)) conversations = latestList;
+      if (Array.isArray(conversations) && conversations.length > 0) {
+        listEl.style.display = 'block';
+        listEl.innerHTML = conversations.slice(0, 20).map(function(c) {
+          var from = c.from || c.sender || c.author || (c.user && c.user.name) || '?';
+          var name = typeof from === 'object' ? (from.name || from.username || '?') : from;
+          var body = c.body || c.content || c.text || c.preview || c.message_preview || '';
+          var ts = c.created_at || c.sent_at || c.ts || '';
+          return '<div class="dm-item">' +
+            '<span class="dm-time">' + escapeHtml(formatTs(ts)) + '</span>' +
+            ' <strong>' + escapeHtml(name) + '</strong>: ' +
+            escapeHtml((body + '').slice(0, 120)) + (body.length > 120 ? '...' : '') +
+            '</div>';
+        }).join('');
+        return;
+      }
+      emptyEl.style.display = 'block';
+      emptyEl.textContent = (summary ? summary + '. ' : '') + 'No pending requests. No recent DMs. Open Moltbook to view full inbox.';
+    }
+     function formatTs(ts) {
+      if (!ts) return '-';
+      try {
+        var d = new Date(ts);
+        return isNaN(d.getTime()) ? ts : d.toLocaleString([], { hour12: false, month: 'short', day: 'numeric', hour:'2-digit', minute:'2-digit' });
+      } catch (_) { return ts; }
+    }
+    function escapeAttr(s) {
+      if (!s) return '';
+      var div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML.replace(/"/g, '&quot;');
+    }
+    function postLink(postId, label) {
+      if (!postId) return label || '-';
+      return '<a href="' + POST_BASE + postId + '" target="_blank" rel="noopener">' + (label || postId.slice(0, 8) + '...') + '</a>';
+    }
+    function badge(action) {
+      var c = action === 'post' ? 'badge-post' : action === 'comment' ? 'badge-comment' : action === 'upvote' ? 'badge-upvote' : action === 'dm_reply' ? 'badge-dm_reply' : 'badge-error';
+      return '<span class="badge ' + c + '">' + action + '</span>';
+    }
+    function renderAction(a, full) {
+      var parts = [formatTs(a.ts), badge(a.action)];
+      if (a.post_id) parts.push(postLink(a.post_id, full ? 'View post' : a.post_id.slice(0, 8) + '...'));
+      if (a.post_author) parts.push('by ' + escapeHtml(a.post_author));
+      if (a.post_title) parts.push(escapeHtml(a.post_title));
+      if (a.content_snippet) parts.push('<span class="snippet">' + escapeHtml(a.content_snippet) + '</span>');
+      return full ? parts.join(' &middot; ') : parts.join(' ');
+    }
+    function renderActionRow(a) {
+      var delCell = '-';
+      if (a.action === 'post' && a.post_id) {
+        delCell = '<button type="button" class="action-btn" data-delete-post="' + escapeAttr(a.post_id) + '" style="color:var(--error);border-color:var(--error);">DEL</button>';
+      } else if (a.action === 'comment' && a.comment_id) {
+        delCell = '<button type="button" class="action-btn" data-delete-comment="' + escapeAttr(a.comment_id) + '" style="color:var(--error);border-color:var(--error);">DEL</button>';
+      }
+      return '<td>' + formatTs(a.ts) + '</td>' +
+        '<td>' + badge(a.action) + '</td>' +
+        '<td>' + (a.post_id ? postLink(a.post_id, a.post_id.slice(0, 8) + '...') : '-') + '</td>' +
+        '<td>' + (a.post_author || a.post_title || '-') + '</td>' +
+        '<td class="snippet">' + escapeHtml(a.content_snippet || '') + '</td>' +
+        '<td>' + delCell + '</td>';
+    }
+    function escapeHtml(s) {
+      if (!s) return '';
+      var div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+    document.getElementById('btnRefresh').onclick = load;
+    document.getElementById('btnMarkRead').onclick = markAllRead;
+    load();
+    setInterval(load, 30000);
+     function switchTab(name) {
+      document.querySelectorAll('.tabs button').forEach(function(b) {
+        b.classList.toggle('active', b.getAttribute('data-tab') === name);
+      });
+      document.querySelectorAll('.tab-panel').forEach(function(p) {
+        p.classList.toggle('active', p.id === 'tab-' + name);
+      });
+      if (name === 'profile') fetchProfile();
+      if (name === 'feed') fetchFeed();
+      if (name === 'submolts') fetchSubmolts();
+      if (name === 'dms') fetchDms();
+      if (name === 'admin') fetchAdmin();
+    }
+    document.querySelectorAll('.tabs button').forEach(function(b) {
+      b.onclick = function() { switchTab(b.getAttribute('data-tab')); };
+    });
+     var SERVER_OFFLINE_MSG = 'Dashboard server not running. Run from python-bot: python serve_dashboard.py then open http://127.0.0.1:8765/dashboard-new.html';
+    function parseResponse(r, text) {
+      var isHtml = typeof text === 'string' && text.trim().indexOf('<') === 0;
+      if (!r.ok) {
+        if (isHtml) return { error: SERVER_OFFLINE_MSG };
+        try { return JSON.parse(text); } catch (e) { return { error: r.status + ' ' + (text || '').slice(0, 80) }; }
+      }
+      if (isHtml) return { error: SERVER_OFFLINE_MSG };
+      try { return JSON.parse(text); } catch (e) { return { error: 'Invalid JSON from server' }; }
+    }
+    function apiGet(path) {
+      return fetch(path).then(function(r) { return r.text().then(function(t) { return parseResponse(r, t); }); });
+    }
+    function apiPost(path, body) {
+      return fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body || {})
+      }).then(function(r) { return r.text().then(function(t) { return parseResponse(r, t); }); });
+    }
+     function fetchProfile() {
+      var el = document.getElementById('profileContent');
+      var errEl = document.getElementById('profileError');
+      el.textContent = 'Loading...';
+      errEl.style.display = 'none';
+      apiGet('/api/me').then(function(d) {
+        if (d.error) {
+          errEl.textContent = d.error;
+          errEl.style.display = 'block';
+          el.textContent = '';
+          return;
+        }
+        var agent = d.agent || d;
+        var name = agent.name || '-';
+        var desc = (agent.description || '').slice(0, 500);
+        var karma = agent.karma != null ? agent.karma : '-';
+        var followers = (agent.follower_count != null ? agent.follower_count : (agent.followers != null ? agent.followers : '-'));
+        var following = (agent.following_count != null ? agent.following_count : (agent.following != null ? agent.following : '-'));
+        var owner = agent.owner || {};
+        var ownerHandle = owner.x_handle ? '@' + owner.x_handle : '';
+        el.innerHTML = '<div class="profile-grid">' +
+          '<span class="label">Name</span><span class="value">' + escapeHtml(name) + '</span>' +
+          '<span class="label">Description</span><span>' + escapeHtml(desc) + '</span>' +
+          '<span class="label">Karma</span><span>' + escapeHtml(String(karma)) + '</span>' +
+          '<span class="label">Followers</span><span>' + escapeHtml(String(followers)) + '</span>' +
+          '<span class="label">Following</span><span>' + escapeHtml(String(following)) + '</span>' +
+          '<span class="label">Owner</span><span>' + escapeHtml(ownerHandle) + '</span>' +
+          '</div>';
+      }).catch(function(e) {
+        errEl.textContent = e.message || 'Failed to fetch';
+        errEl.style.display = 'block';
+        el.textContent = '';
+      });
+    }
+     function fetchFeed() {
+      var el = document.getElementById('feedContent');
+      var errEl = document.getElementById('feedError');
+      el.textContent = 'Loading...';
+      errEl.style.display = 'none';
+      apiGet('/api/feed?limit=20').then(function(d) {
+        if (d.error) {
+          errEl.textContent = d.error;
+          errEl.style.display = 'block';
+          el.textContent = '';
+          return;
+        }
+        var posts = (d.posts || d.items || []);
+        if (posts.length === 0) {
+          el.innerHTML = '<div class="meta">No posts in feed.</div>';
+          return;
+        }
+        el.innerHTML = posts.slice(0, 25).map(function(p) {
+          var id = p.id || '';
+          var title = (p.title || '').slice(0, 80);
+          var author = (p.author && p.author.name) ? p.author.name : '?';
+          var submolt = (p.submolt && p.submolt.name) ? p.submolt.name : '?';
+          var link = id ? '<a href="' + POST_BASE + id + '" target="_blank" rel="noopener">' + escapeHtml(title || id.slice(0, 8)) + '</a>' : escapeHtml(title);
+          return '<div class="feed-item">' + link + ' <span class="meta">by ' + escapeHtml(author) + ' (' + escapeHtml(submolt) + ')</span></div>';
+        }).join('');
+      }).catch(function(e) {
+        errEl.textContent = e.message || 'Failed to fetch';
+        errEl.style.display = 'block';
+        el.textContent = '';
+      });
+    }
+     function fetchSubmolts() {
+      var el = document.getElementById('submoltsContent');
+      var errEl = document.getElementById('submoltsError');
+      el.textContent = 'Loading...';
+      errEl.style.display = 'none';
+      apiGet('/api/submolts').then(function(d) {
+        if (d.error) {
+          errEl.textContent = d.error;
+          errEl.style.display = 'block';
+          el.textContent = '';
+          return;
+        }
+        var list = d.submolts || d.items || [];
+        if (list.length === 0) {
+          el.innerHTML = '<div class="meta">No submolts.</div>';
+          return;
+        }
+        el.innerHTML = list.slice(0, 50).map(function(s) {
+          var name = s.name || s.id || '?';
+          var display = s.display_name || name;
+          var desc = (s.description || '').slice(0, 100);
+          return '<div class="submolt-item"><strong>' + escapeHtml(display) + '</strong> <span class="meta">' + escapeHtml(name) + '</span>' + (desc ? '<br><span class="meta">' + escapeHtml(desc) + '</span>' : '') + '</div>';
+        }).join('');
+      }).catch(function(e) {
+        errEl.textContent = e.message || 'Failed to fetch';
+        errEl.style.display = 'block';
+        el.textContent = '';
+      });
+    }
+     var selectedDmCid = '';
+     function fetchDms() {
+      var errEl = document.getElementById('dmsError');
+      var convListEl = document.getElementById('dmsConvList');
+      var convEmptyEl = document.getElementById('dmsConvEmpty');
+      var contentEl = document.getElementById('dmsContent');
+      var summaryEl = document.getElementById('dmsSummary');
+      errEl.style.display = 'none';
+      convListEl.innerHTML = 'Loading...';
+      convEmptyEl.style.display = 'none';
+      apiGet('/api/dm_conversations').then(function(d) {
+        if (d.error) {
+          errEl.textContent = d.error;
+          errEl.style.display = 'block';
+          convListEl.innerHTML = '';
+          return;
+        }
+        var rawConvs = d.conversations || d.items;
+        var convs = Array.isArray(rawConvs) ? rawConvs : (rawConvs && rawConvs.items) ? rawConvs.items : [];
+        if (convs.length === 0) {
+          convListEl.innerHTML = '';
+          convEmptyEl.style.display = 'block';
+          document.getElementById('dmsThreadEmpty').style.display = 'block';
+          document.getElementById('dmsReplyArea').style.display = 'none';
+          document.getElementById('dmsThreadMessages').innerHTML = '';
+          document.getElementById('dmsThreadSummary').textContent = '';
+        } else {
+          convEmptyEl.style.display = 'none';
+          convListEl.innerHTML = convs.map(function(c) {
+            var cid = c.conversation_id || c.id || c.conversationId || '';
+            var withAgent = c.with_agent || c.with || c.other_agent || {};
+            var name = (typeof withAgent === 'object' ? (withAgent.name || withAgent.username || '?') : withAgent);
+            var preview = (c.last_message || c.last_message_preview || c.message_preview || '').slice(0, 60);
+            var unread = (c.unread_count != null && c.unread_count > 0) ? ' (' + c.unread_count + ')' : '';
+            return '<div class="dm-conv-item" data-cid="' + escapeAttr(cid) + '" data-name="' + escapeAttr(name) + '">' +
+              '<strong>' + escapeHtml(name) + '</strong>' + unread + '<br><span class="meta">' + escapeHtml(preview) + '</span></div>';
+          }).join('');
+          convListEl.querySelectorAll('.dm-conv-item').forEach(function(el) {
+            el.onclick = function() {
+              selectedDmCid = el.getAttribute('data-cid') || '';
+              var name = el.getAttribute('data-name') || '?';
+              convListEl.querySelectorAll('.dm-conv-item').forEach(function(e) { e.classList.remove('selected'); });
+              el.classList.add('selected');
+              document.getElementById('dmsThreadSummary').textContent = 'Chat with ' + name;
+              document.getElementById('dmsThreadEmpty').style.display = 'none';
+              document.getElementById('dmsReplyArea').style.display = 'block';
+              document.getElementById('dmReplyText').value = '';
+              loadDmThread(selectedDmCid);
+            };
+          });
+        }
+        apiGet('/api/dm_check').then(function(dc) {
+          if (dc.error) { summaryEl.textContent = ''; return; }
+          summaryEl.textContent = (dc.summary || '') + (dc.requests && dc.requests.action_needed ? ' (action needed)' : '');
+          var reqs = (dc.requests && dc.requests.items) ? dc.requests.items : [];
+          if (reqs.length === 0) {
+            contentEl.innerHTML = '<div class="meta">No pending requests.</div>';
+            return;
+          }
+          contentEl.innerHTML = reqs.map(function(c) {
+            var cid = c.conversation_id || c.id || '';
+            var from = c.from || {};
+            var n = (typeof from === 'object' ? (from.name || '?') : from);
+            var preview = (c.message_preview || '').slice(0, 100);
+            return '<div class="dm-item">' +
+              '<strong>' + escapeHtml(n) + '</strong>: ' + escapeHtml(preview) +
+              ' <div class="dm-actions" style="margin-top:0.5rem;">' +
+              '<button type="button" class="action-btn" data-cid="' + escapeAttr(cid) + '" data-action="approve" style="color:var(--success);border-color:var(--success);margin-right:0.5rem;">Approve</button>' +
+              '<button type="button" class="action-btn" data-cid="' + escapeAttr(cid) + '" data-action="reject" style="color:var(--error);border-color:var(--error);">Reject</button></div></div>';
+          }).join('');
+          contentEl.querySelectorAll('.dm-actions button').forEach(function(btn) {
+            btn.onclick = function() {
+              var cid = btn.getAttribute('data-cid');
+              var action = btn.getAttribute('data-action');
+              if (action === 'approve') {
+                apiPost('/api/dm_approve', { conversation_id: cid }).then(function(r) { if (r.error) alert(r.error); else fetchDms(); });
+              } else {
+                apiPost('/api/dm_reject', { conversation_id: cid, block: false }).then(function(r) { if (r.error) alert(r.error); else fetchDms(); });
+              }
+            };
+          });
+        });
+      }).catch(function(e) {
+        errEl.textContent = e.message || 'Failed';
+        errEl.style.display = 'block';
+        convListEl.innerHTML = '';
+      });
+    }
+    function loadDmThread(cid) {
+      if (!cid) return;
+      var el = document.getElementById('dmsThreadMessages');
+      el.innerHTML = 'Loading...';
+      apiGet('/api/dm_conversation?conversation_id=' + encodeURIComponent(cid)).then(function(d) {
+        if (d.error) {
+          el.innerHTML = '<div class="errors">' + escapeHtml(d.error) + '</div>';
+          return;
+        }
+        var rawMsgs = d.messages || d.items || (d.conversation && d.conversation.messages);
+        var messages = Array.isArray(rawMsgs) ? rawMsgs : (rawMsgs && rawMsgs.items) ? rawMsgs.items : [];
+        var meName = (d.agent && d.agent.name) ? d.agent.name : 'me';
+        el.innerHTML = messages.length === 0 ? '<div class="meta">No messages.</div>' : messages.map(function(m) {
+          var from = m.from || m.sender || m.author || {};
+          var name = typeof from === 'object' ? (from.name || from.username || '?') : from;
+          var isMe = (m.is_me === true) || (name === meName) || (m.direction === 'outgoing') || (m.sent_by_me === true);
+          var cls = isMe ? 'msg-me' : 'msg-them';
+          var body = (m.content || m.body || m.message || m.text || '').slice(0, 2000);
+          var ts = m.created_at || m.sent_at || m.timestamp || '';
+          return '<div class="dm-msg ' + cls + '"><div class="dm-msg-meta">' + escapeHtml(name) + ' ' + escapeHtml(formatTs(ts)) + '</div>' + escapeHtml(body) + '</div>';
+        }).join('');
+        el.scrollTop = el.scrollHeight;
+      });
+    }
+    document.getElementById('dmSendBtn').onclick = function() {
+      var cid = selectedDmCid;
+      var text = (document.getElementById('dmReplyText').value || '').trim();
+      if (!cid || !text) { alert('Select a conversation and enter a message.'); return; }
+      document.getElementById('dmSendBtn').disabled = true;
+      apiPost('/api/dm_send', { conversation_id: cid, message: text }).then(function(r) {
+        document.getElementById('dmSendBtn').disabled = false;
+        if (r.error) alert(r.error);
+        else { document.getElementById('dmReplyText').value = ''; loadDmThread(cid); fetchDms(); }
+      }).catch(function() { document.getElementById('dmSendBtn').disabled = false; });
+    };
+    document.getElementById('dmAiReplyBtn').onclick = function() {
+      var cid = selectedDmCid;
+      if (!cid) { alert('Select a conversation first.'); return; }
+      document.getElementById('dmAiReplyBtn').disabled = true;
+      apiPost('/api/dm_ai_reply', { conversation_id: cid }).then(function(r) {
+        document.getElementById('dmAiReplyBtn').disabled = false;
+        if (r.error) alert(r.error || 'AI reply failed');
+        else { loadDmThread(cid); fetchDms(); if (r.message) document.getElementById('dmReplyText').value = r.message; }
+      }).catch(function() { document.getElementById('dmAiReplyBtn').disabled = false; });
+    };
+     function fetchAdmin() {
+      var configEl = document.getElementById('adminConfig');
+      var pausedEl = document.getElementById('adminPaused');
+      var errEl = document.getElementById('adminError');
+      errEl.style.display = 'none';
+      apiGet('/api/paused').then(function(d) {
+        if (d.error) {
+          pausedEl.textContent = d.error;
+          pausedEl.style.color = 'var(--muted)';
+          document.getElementById('btnPause').style.display = 'none';
+          document.getElementById('btnResume').style.display = 'none';
+          return;
+        }
+        var paused = d.paused === true;
+        pausedEl.textContent = paused ? 'STATUS: PAUSED. Agent is dormant.' : 'STATUS: ACTIVE. Agent is running cycles.';
+        pausedEl.style.color = paused ? 'var(--warn)' : 'var(--success)';
+        document.getElementById('btnPause').style.display = paused ? 'none' : 'inline-block';
+        document.getElementById('btnResume').style.display = paused ? 'inline-block' : 'none';
+      });
+      apiGet('/api/config').then(function(d) {
+        if (d.error) {
+          configEl.textContent = d.error;
+          return;
+        }
+        configEl.innerHTML = 'persona: ' + escapeHtml(d.persona || '-') + '<br>poll_minutes: ' + (d.poll_minutes != null ? d.poll_minutes : '-') + '<br>auto_accept_dm_requests: ' + (d.auto_accept_dm_requests ? 'true' : 'false') + '<br>api_key: ' + escapeHtml(d.moltbook_api_key_masked || '***');
+      }).catch(function(e) {
+        errEl.textContent = e.message || 'Failed';
+        errEl.style.display = 'block';
+      });
+    }
+    document.getElementById('btnPause').onclick = function() {
+      apiPost('/api/pause').then(function(r) {
+        if (r.error) document.getElementById('adminError').textContent = r.error;
+        else fetchAdmin();
+      });
+    };
+    document.getElementById('btnResume').onclick = function() {
+      apiPost('/api/resume').then(function(r) {
+        if (r.error) document.getElementById('adminError').textContent = r.error;
+        else fetchAdmin();
+      });
+    };
+  </script>
+</body>
+</html>

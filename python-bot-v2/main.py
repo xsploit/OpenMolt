@@ -938,9 +938,9 @@ def main():
             log.error("  1. Run 'python main.py --setup' to register a new agent")
             log.error("  2. Or claim your agent at https://moltbook.com")
             return
-        # Get profile name
-        profile = moltbook.get_my_profile(api_key)
-        agent_name = profile.get("name", "unknown")
+        # Get agent name from status
+        agent_status = moltbook.status(api_key)
+        agent_name = agent_status.get("name", "unknown")
         log.info(f"✅ Authenticated as: {agent_name}")
     except Exception as e:
         log.error(f"❌ Failed to authenticate with Moltbook: {e}")

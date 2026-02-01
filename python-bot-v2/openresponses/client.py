@@ -36,9 +36,9 @@ class OpenResponsesClient:
         self.adapter = adapter
 
     @classmethod
-    def ollama(cls, base_url: str = "http://localhost:11434/v1", model: str = "qwen3:4b") -> "OpenResponsesClient":
-        """Create a client using Ollama backend."""
-        return cls(OllamaAdapter(base_url=base_url, model=model))
+    def ollama(cls, base_url: str = "http://localhost:11434/v1", model: str = "qwen3:4b", ollama_options: dict = None) -> "OpenResponsesClient":
+        """Create a client using Ollama backend with optional optimized options."""
+        return cls(OllamaAdapter(base_url=base_url, model=model, ollama_options=ollama_options))
 
     @classmethod
     def openrouter(cls, api_key: str, model: str = "openai/gpt-4o") -> "OpenResponsesClient":
@@ -54,9 +54,15 @@ class OpenResponsesClient:
                 model=config.get("openrouter_model", "openai/gpt-4o")
             )
         else:
+            # Get Ollama options from config
+            ollama_options = config.get("ollama_options", {}).copy()
+            # Also check for explicit num_ctx setting
+            if config.get("ollama_num_ctx"):
+                ollama_options["num_ctx"] = config["ollama_num_ctx"]
             return cls.ollama(
                 base_url=config.get("ollama_base_url", "http://localhost:11434/v1"),
-                model=config.get("ollama_model", "qwen3:4b")
+                model=config.get("ollama_model", "qwen3:4b"),
+                ollama_options=ollama_options
             )
 
     def create_response(

@@ -222,7 +222,80 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def _send_json(self, data, status=200):
         self.send_response(status)
-# ... unchanged
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Cache-Control", "no-store, max-age=0")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(json.dumps(data, ensure_ascii=False).encode("utf-8"))
+
+    def _read_body_json(self):
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            if length <= 0:
+                return {}
+            raw = self.rfile.read(length)
+            return json.loads(raw.decode("utf-8"))
+        except Exception:
+            return {}
+
+    def _handle_api_get(self, path, query):
+        config = _load_config()
+        key = config["moltbook_api_key"]
+        path = path.rstrip("/")
+        
+        if path == "/api/me":
+            self._send_json(_api_me(key))
+        elif path == "/api/status":
+            self._send_json(_api_status(key))
+        elif path == "/api/dm_check":
+            self._send_json(_api_dm_check(key))
+        elif path == "/api/dm_conversations":
+            self._send_json(_api_dm_conversations(key))
+        elif path == "/api/dm_conversation":
+            cid = (query.get("conversation_id") or [""])[0].strip()
+            self._send_json(_api_dm_conversation(key, cid))
+        elif path == "/api/feed":
+            limit = (query.get("limit") or ["15"])[0]
+            self._send_json(_api_feed(key, limit))
+        elif path == "/api/submolts":
+            self._send_json(_api_submolts(key))
+        elif path == "/api/config":
+            self._send_json(_api_config())
+        elif path == "/api/paused":
+            import dashboard
+            self._send_json({"paused": dashboard.get_paused()})
+        else:
+            self._send_json({"error": "unknown path"}, 404)
+
+    def _handle_api_post(self, path, body):
+        config = _load_config()
+        key = config["moltbook_api_key"]
+        path = path.rstrip("/")
+        
+        if path == "/api/dm_approve":
+            cid = (body.get("conversation_id") or "").strip()
+            self._send_json(_api_dm_approve(key, cid))
+        elif path == "/api/dm_reject":
+            cid = (body.get("conversation_id") or "").strip()
+            block = bool(body.get("block", False))
+            self._send_json(_api_dm_reject(key, cid, block))
+        elif path == "/api/dm_send":
+            cid = (body.get("conversation_id") or "").strip()
+            msg = (body.get("message") or "").strip()
+            needs_human = bool(body.get("needs_human_input", False))
+            self._send_json(_api_dm_send(key, cid, msg, needs_human))
+        elif path == "/api/pause":
+            self._send_json(_api_pause())
+        elif path == "/api/resume":
+            self._send_json(_api_resume())
+        elif path == "/api/delete_post":
+            pid = (body.get("post_id") or "").strip()
+            self._send_json(_api_delete_post(key, pid))
+        elif path == "/api/delete_comment":
+            cid = (body.get("comment_id") or "").strip()
+            self._send_json(_api_delete_comment(key, cid))
+        else:
+            self._send_json({"error": "unknown path"}, 404)
 
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -242,6 +315,27 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             return
         super().do_GET()
+
+    def do_POST(self):
+        parsed = urlparse(self.path)
+        path = parsed.path
+        if path.startswith("/api/"):
+            body = self._read_body_json()
+            self._handle_api_post(path, body)
+            return
+        self.send_response(405)
+        self.end_headers()
+
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
+
+    def end_headers(self):
+        self.send_header("Cache-Control", "no-store, max-age=0")
+        super().end_headers()
 
     def log_message(self, format, *args):
         pass  # Quiet logging

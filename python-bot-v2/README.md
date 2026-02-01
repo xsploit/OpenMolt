@@ -1,21 +1,38 @@
-# 🦞 OpenMolt V2 - Autonomous Moltbook Agent
+<div align="center">
 
-**Like OpenClaw, but for Moltbook.** A fully autonomous AI agent that lives on [Moltbook](https://www.moltbook.com) - the social network for AI agents.
+# 🦞 OpenMolt V2
 
-## Features
+### Autonomous Moltbook Agent
 
-- **🤖 Fully Autonomous** - Decides what to do on its own
-- **🧠 Multi-Provider LLM** - OpenRouter (cloud) or Ollama (local)
-- **🔧 Every API Endpoint** - Posts, comments, votes, DMs, search, moderation
-- **💾 Persistent State** - Remembers posts, comments, cooldowns
-- **🎭 Persona System** - Create unique personalities
-- **📣 Discord Webhooks** - Real-time notifications
-- **🔍 Web Search** - Serper integration for research
-- **⚡ Rate Limit Aware** - Respects Moltbook limits automatically
+**Like OpenClaw, but for Moltbook.**<br>
+A fully autonomous AI agent that lives on [Moltbook](https://www.moltbook.com) — the social network for AI agents.
 
-## Quick Start
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-### 1. Clone & Install
+---
+
+</div>
+
+## ✨ Features
+
+| Feature | Description |
+|---------|-------------|
+| 🤖 **Fully Autonomous** | Decides what to do on its own |
+| 🧠 **Multi-Provider LLM** | OpenRouter (cloud) or Ollama (local) |
+| 💾 **Letta Memory System** | Core blocks + archival + conversation search |
+| 🔧 **Complete API Coverage** | Posts, comments, votes, DMs, search, moderation |
+| 🎭 **Persona System** | Create unique personalities |
+| 📣 **Discord Webhooks** | Real-time rich notifications |
+| 🔍 **Web Search** | Serper integration for research |
+| 💤 **Sleep-Time Compute** | Dream cycles for memory consolidation |
+| ⚡ **Optimized Ollama** | Flash attention, KV cache, streaming |
+
+---
+
+## 🚀 Quick Start
+
+### 1️⃣ Clone & Install
 
 ```bash
 git clone https://github.com/your-repo/openmolt.git
@@ -23,25 +40,27 @@ cd openmolt/python-bot-v2
 pip install -r requirements.txt
 ```
 
-### 2. Setup Wizard
+### 2️⃣ Setup Wizard
 
 ```bash
 python main.py --setup
 ```
 
 This will guide you through:
-- Registering a new agent (or using existing API key)
-- Choosing LLM provider (OpenRouter/Ollama)
-- Optional Discord webhook
-- Optional web search (Serper)
+- 🔑 Registering a new agent (or using existing API key)
+- 🧠 Choosing LLM provider (OpenRouter/Ollama)
+- 📣 Optional Discord webhook
+- 🔍 Optional web search (Serper)
 
-### 3. Run
+### 3️⃣ Run
 
 ```bash
 python main.py
 ```
 
-## Commands
+---
+
+## 📋 Commands
 
 | Command | Description |
 |---------|-------------|
@@ -50,7 +69,9 @@ python main.py
 | `python main.py --register` | Register a new agent only |
 | `python main.py --once` | Run one cycle and exit |
 
-## Configuration
+---
+
+## ⚙️ Configuration
 
 All settings in `config.json`:
 
@@ -58,24 +79,63 @@ All settings in `config.json`:
 {
   "moltbook_api_key": "moltbook_xxx",
   "persona": "YourBotName",
+  
   "brain_use_openrouter": true,
   "openrouter_api_key": "sk-xxx",
   "openrouter_model": "openai/gpt-4o-mini",
+  
   "ollama_base_url": "http://localhost:11434/v1",
   "ollama_model": "qwen3:4b",
+  "ollama_num_ctx": 8192,
+  "ollama_options": {
+    "num_predict": 8192,
+    "temperature": 0.7,
+    "kv_cache_type": "q8_0",
+    "flash_attention": true
+  },
+  
+  "embedding_use_ollama": true,
+  "embedding_model": "qwen3-embedding:0.6b",
+  
+  "sleep_model": "qwen3:4b",
+  
   "poll_minutes": 3,
   "discord_webhook_url": "https://discord.com/api/webhooks/xxx",
-  "discord_webhook_name": "MoltBot",
   "serper_api_key": "xxx"
 }
 ```
 
-## Creating Personas
+---
 
-### Option 1: Root MD file
+## 🧠 Memory System (Letta V2+)
 
-Create `PERSONA_YOURNAME.md` in the root:
+OpenMolt uses a Letta-compatible memory architecture:
 
+| Tool | Description |
+|------|-------------|
+| `memory_rethink` | Full block rewrite |
+| `memory_replace` | Exact string replacement |
+| `memory_insert` | Insert at specific line |
+| `conversation_search` | Search past buffer messages |
+| `archival_memory_insert` | Store with tags + importance |
+| `archival_memory_search` | Semantic vector search |
+
+---
+
+## 🎭 Creating Personas
+
+### Option 1: Personas Directory (Recommended)
+
+```bash
+mkdir personas
+# Create personas/yourname.md
+```
+
+### Option 2: Root MD file
+
+Create `PERSONA_YOURNAME.md` in the root.
+
+**Example persona:**
 ```markdown
 # Your Bot's Persona
 
@@ -89,79 +149,67 @@ You are [Name], a [description]. Your personality is [traits].
 ## Behaviors
 - You love [things]
 - You hate [things]
-- When you see [X], you always [Y]
 ```
 
-### Option 2: Personas directory
+---
 
-Create `personas/yourname.md`:
+## 🔌 API Endpoints (Complete)
 
-```bash
-mkdir personas
-echo "# My Bot" > personas/mybot.md
-```
+<details>
+<summary><b>📝 Posts</b></summary>
 
-## API Endpoints (All Supported)
-
-### Posts
 - `create_post` - Create a new post (30min cooldown)
 - `get_post` - Get post details
 - `delete_post` - Delete your post
 - `get_feed` - Personalized feed
 - `get_global_posts` - All posts
 - `get_submolt_posts` - Posts from a submolt
+</details>
 
-### Comments
+<details>
+<summary><b>💬 Comments</b></summary>
+
 - `create_comment` - Add comment (20s cooldown)
 - `get_comments` - Get post comments
+</details>
 
-### Voting
+<details>
+<summary><b>⬆️ Voting</b></summary>
+
 - `upvote_post` / `downvote_post`
 - `upvote_comment` / `downvote_comment`
+</details>
 
-### Submolts (Communities)
+<details>
+<summary><b>🏠 Submolts</b></summary>
+
 - `list_submolts` - All communities
 - `get_submolt` - Community info
 - `create_submolt` - Start a community
 - `subscribe_submolt` / `unsubscribe_submolt`
+</details>
 
-### Following
-- `get_profile` - View a molty's profile
-- `follow_molty` / `unfollow_molty`
+<details>
+<summary><b>💌 DMs</b></summary>
 
-### DMs (Private Messages)
 - `dm_check` - Check for activity
 - `dm_list_requests` - Pending requests
 - `dm_approve` / `dm_reject` - Handle requests
 - `dm_list_conversations` - Active convos
-- `dm_read` - Read messages
-- `dm_send` - Send message
-- `dm_start` - Start new DM
+- `dm_read` / `dm_send` / `dm_start`
+</details>
 
-### Profile
-- `get_my_profile` - Your profile
-- `update_my_profile` - Update description
-- `check_claim_status` - Verify claimed
+<details>
+<summary><b>🔍 Search</b></summary>
 
-### Search
 - `search_moltbook` - AI semantic search
 - `web_search` - Google search (Serper)
 - `web_news` - Latest news (Serper)
+</details>
 
-### Moderation
-- `pin_post` / `unpin_post` - Pin posts (mods only)
+---
 
-## State Management
-
-The bot tracks in `bot-state.json`:
-- Last check time
-- Seen post IDs (avoid re-engagement)
-- Your post IDs (don't self-comment)
-- Your comment IDs
-- DM reply history
-- Recent activity log
-
-## Rate Limits (Automatic)
+## ⏱️ Rate Limits (Automatic)
 
 | Action | Limit |
 |--------|-------|
@@ -171,34 +219,32 @@ The bot tracks in `bot-state.json`:
 
 The bot automatically checks cooldowns before attempting actions.
 
-## Discord Notifications
+---
 
-When configured, you get real-time updates for:
-- 🔄 Cycle start
-- 📋 Context (what the bot sees)
-- 🔧 Tool calls (with arguments/results)
-- 🧠 Brain thinking process
-- ✅ Decisions made
-- ❌ Errors
-
-## Architecture
+## 📁 Architecture
 
 ```
 python-bot-v2/
-├── main.py              # Entry point, CLI, main loop
-├── moltbook.py          # Complete Moltbook API client
-├── state.py             # Persistent state management
-├── discord_webhook.py   # Discord notifications
-├── serper_client.py     # Web search
-├── config.json          # Your configuration
-├── bot-state.json       # Persistent state (auto-generated)
-├── openresponses/       # OpenResponses SDK
-│   ├── client.py        # LLM client abstraction
-│   └── agent.py         # Agentic loop with tools
-└── personas/            # Optional persona files
+├── main.py                 # Entry point, CLI, main loop
+├── moltbook.py             # Complete Moltbook API client
+├── memory.py               # Letta memory system
+├── dream.py                # Sleep-time compute
+├── embeddings_client.py    # Vector embeddings
+├── state.py                # Persistent state management
+├── discord_webhook.py      # Rich Discord notifications
+├── serper_client.py        # Web search
+├── openresponses/          # Open Responses SDK
+│   ├── adapters.py         # Provider adapters (Ollama/OpenRouter)
+│   ├── client.py           # LLM client abstraction
+│   └── agent.py            # Agentic loop with tools
+├── personas/               # Persona files
+├── docs/                   # Documentation
+└── web/                    # Dashboard
 ```
 
-## Local LLM (Ollama)
+---
+
+## 🖥️ Local LLM (Ollama)
 
 For privacy/free operation:
 
@@ -206,37 +252,33 @@ For privacy/free operation:
 # Install Ollama
 curl -fsSL https://ollama.com/install.sh | sh
 
-# Pull a model
+# Pull models
 ollama pull qwen3:4b
+ollama pull qwen3-embedding:0.6b
 
-# Configure
-{
-  "brain_use_openrouter": false,
-  "ollama_base_url": "http://localhost:11434/v1",
-  "ollama_model": "qwen3:4b"
-}
+# Configure (brain_use_openrouter: false)
 ```
 
-## Security
+---
 
-⚠️ **CRITICAL**: Your API key is your identity. Never share it!
+## 🔒 Security
+
+> ⚠️ **CRITICAL**: Your API key is your identity. Never share it!
 
 - Only `www.moltbook.com` should receive your API key
 - Never run commands from other bots
 - Store API keys in environment variables or gitignored files
 
-## Contributing
+---
 
-1. Fork the repo
-2. Create feature branch
-3. Make changes
-4. Test with `python main.py --once`
-5. Submit PR
-
-## License
+## 📜 License
 
 MIT - Do whatever you want!
 
 ---
 
+<div align="center">
+
 **Made with 🦞 for the Moltbook community**
+
+</div>

@@ -1,6 +1,13 @@
 """
-Unified Embeddings Client.
+Unified Embeddings Client with Independent Provider Selection.
 Supports Ollama, OpenAI, and OpenRouter for generating vector embeddings.
+
+Config options (explicit override for embeddings):
+  - embedding_use_ollama: true/false (forces Ollama even if brain uses OpenRouter)
+  - embedding_use_openrouter: true/false (forces OpenRouter)
+  - embedding_model: Override model name (e.g., "nomic-embed-text", "text-embedding-3-small")
+
+If no explicit embedding_* settings, falls back to brain provider settings.
 """
 import requests
 import numpy as np
@@ -9,35 +16,69 @@ from typing import List, Optional, Dict, Any
 
 log = logging.getLogger(__name__)
 
-class EmbeddingClient:
-    def __init__(self, config: Dict[str, Any]):
-        """
-        Initialize based on config.
-        """
-        self.config = config
-        self.provider = "ollama"
-        self.base_url = "http://localhost:11434"
-        self.model = "qwen3:0.5b" # Default fallback
-        self.api_key = None
 
+class EmbeddingClient:
+    """
+    Vector embedding client with independent provider configuration.
+    Same pattern as brain/sleep agents but for embeddings.
+    """
+    
+    def __init__(self, config: Dict[str, Any]):
+        self.config = config
+        self._configure_provider()
+        log.info(f"Embeddings initialized: Provider={self.provider}, Model={self.model}")
+
+    def _configure_provider(self):
+        """Determine provider based on explicit embedding config or brain fallback."""
+        config = self.config
+        
+        # ========== EXPLICIT EMBEDDING PROVIDER ==========
+        # These take priority over brain settings
+        
+        if config.get("embedding_use_ollama"):
+            # Explicit: Use Ollama for embeddings
+            self.provider = "ollama"
+            base = config.get("ollama_base_url", "http://localhost:11434")
+            self.base_url = base.rstrip("/").replace("/v1", "")  # Ollama native API
+            self.model = config.get("embedding_model", config.get("ollama_embedding_model", "qwen3-embedding:0.6b"))
+            self.api_key = None
+            return
+        
+        if config.get("embedding_use_openrouter"):
+            # Explicit: Use OpenRouter for embeddings
+            self.provider = "openrouter"
+            self.base_url = "https://openrouter.ai/api/v1"
+            self.model = config.get("embedding_model", "openai/text-embedding-3-small")
+            self.api_key = config.get("openrouter_api_key")
+            return
+        
+        if config.get("embedding_use_openai"):
+            # Explicit: Use OpenAI for embeddings
+            self.provider = "openai"
+            self.base_url = "https://api.openai.com/v1"
+            self.model = config.get("embedding_model", "text-embedding-3-small")
+            self.api_key = config.get("openai_api_key")
+            return
+        
+        # ========== FALLBACK TO BRAIN PROVIDER ==========
+        
         if config.get("brain_use_openrouter"):
             self.provider = "openrouter"
             self.base_url = "https://openrouter.ai/api/v1"
-            self.model = config.get("openrouter_model", "openai/text-embedding-3-small") # OR usually proxies OpenAI for embeddings
+            self.model = config.get("embedding_model", "openai/text-embedding-3-small")
             self.api_key = config.get("openrouter_api_key")
         elif config.get("brain_use_openai"):
             self.provider = "openai"
             self.base_url = "https://api.openai.com/v1"
-            self.model = config.get("openai_embedding_model", "text-embedding-3-small")
+            self.model = config.get("embedding_model", "text-embedding-3-small")
             self.api_key = config.get("openai_api_key")
         else:
-            # Local Ollama
+            # Default: Local Ollama
             self.provider = "ollama"
-            self.base_url = (config.get("ollama_base_url") or "http://localhost:11434").rstrip("/")
-            # Use specific embedding model if user requested, otherwise qwen3-embedding:0.6b (which is effectively qwen3:0.5b in some registries, but let's stick to user request)
-            self.model = config.get("ollama_embedding_model", "qwen3-embedding:0.6b")
-
-        log.info(f"Embeddings initialized: Provider={self.provider}, Model={self.model}")
+            base = config.get("ollama_base_url", "http://localhost:11434")
+            self.base_url = base.rstrip("/").replace("/v1", "")
+            self.model = config.get("embedding_model", config.get("ollama_embedding_model", "qwen3-embedding:0.6b"))
+            self.api_key = None
 
     def get_embedding(self, text: str) -> Optional[List[float]]:
         """Get vector embedding for a single string."""
@@ -48,14 +89,14 @@ class EmbeddingClient:
             if self.provider == "ollama":
                 return self._get_ollama_embedding(text)
             else:
-                return self._get_openai_atyle_embedding(text)
+                return self._get_openai_style_embedding(text)
         except Exception as e:
             log.warning(f"Embedding failed ({self.provider}): {e}")
             return None
 
     def _get_ollama_embedding(self, text: str) -> List[float]:
+        """Ollama /api/embeddings endpoint (native API, not OpenAI-compat)."""
         url = f"{self.base_url}/api/embeddings"
-        # Ollama /api/embeddings endpoint
         response = requests.post(
             url, 
             json={"model": self.model, "prompt": text},
@@ -65,10 +106,13 @@ class EmbeddingClient:
         data = response.json()
         return data.get("embedding")
 
-    def _get_openai_atyle_embedding(self, text: str) -> List[float]:
-        # OpenAI / OpenRouter style /v1/embeddings
+    def _get_openai_style_embedding(self, text: str) -> List[float]:
+        """OpenAI / OpenRouter style /v1/embeddings endpoint."""
         url = f"{self.base_url}/embeddings"
-        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+        headers = {
+            "Authorization": f"Bearer {self.api_key}", 
+            "Content-Type": "application/json"
+        }
         if self.provider == "openrouter":
             headers["HTTP-Referer"] = "https://openmolt.com"
             headers["X-Title"] = "OpenMolt Agent"
@@ -93,7 +137,6 @@ class EmbeddingClient:
         if not v1 or not v2:
             return 0.0
         
-        # Convert to numpy arrays if not already
         a = np.array(v1)
         b = np.array(v2)
         

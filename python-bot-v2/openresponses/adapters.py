@@ -45,10 +45,29 @@ class OllamaAdapter(BaseAdapter):
     """
     Adapter for Ollama's OpenAI-compatible API.
     Translates Open Responses items <-> Chat Completions format.
+    
+    Accepts ollama_options dict for performance settings:
+      - num_ctx: Context window size
+      - num_predict: Max tokens
+      - num_batch: Batch size
+      - num_gpu: GPU layers
+      - kv_cache_type: "q8_0" for faster inference
+      - flash_attention: True for faster attention
+      - temperature, repeat_penalty, etc.
     """
 
-    def __init__(self, base_url: str = "http://localhost:11434/v1", model: str = "qwen3:4b"):
+    def __init__(self, base_url: str = "http://localhost:11434/v1", model: str = "qwen3:4b", ollama_options: dict = None):
         super().__init__(base_url, "ollama", model)
+        # Default optimized options
+        self.ollama_options = {
+            "num_batch": 512,
+            "num_gpu": 1,
+            "repeat_penalty": 1.1,
+            "kv_cache_type": "q8_0",
+            "flash_attention": True,
+        }
+        if ollama_options:
+            self.ollama_options.update(ollama_options)
 
     def _items_to_messages(self, items: List[Item]) -> List[Dict[str, Any]]:
         """Convert Open Responses items to chat messages."""
@@ -142,17 +161,21 @@ class OllamaAdapter(BaseAdapter):
         else:
             messages = self._items_to_messages(request.input)
 
-        # Build payload
+        # Build payload with optimized options
         payload = {
             "model": request.model or self.model,
             "messages": messages,
-            "stream": False
+            "stream": False,
+            "options": self.ollama_options.copy()  # Add Ollama-specific options
         }
         if request.tools:
             payload["tools"] = self._tools_to_chat_format(request.tools)
             payload["tool_choice"] = request.tool_choice or "auto"
         if request.temperature is not None:
             payload["temperature"] = request.temperature
+            payload["options"]["temperature"] = request.temperature
+        if request.max_output_tokens:
+            payload["options"]["num_predict"] = request.max_output_tokens
 
         # Call Ollama
         url = f"{self.base_url}/chat/completions"
@@ -183,11 +206,16 @@ class OllamaAdapter(BaseAdapter):
         payload = {
             "model": request.model or self.model,
             "messages": messages,
-            "stream": True
+            "stream": True,
+            "options": self.ollama_options.copy()  # Add Ollama-specific options
         }
         if request.tools:
             payload["tools"] = self._tools_to_chat_format(request.tools)
             payload["tool_choice"] = request.tool_choice or "auto"
+        if request.temperature is not None:
+            payload["options"]["temperature"] = request.temperature
+        if request.max_output_tokens:
+            payload["options"]["num_predict"] = request.max_output_tokens
 
         url = f"{self.base_url}/chat/completions"
         headers = {"Content-Type": "application/json"}

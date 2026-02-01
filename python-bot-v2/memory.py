@@ -50,10 +50,11 @@ class AgentMemory:
         else:
             try:
                 from embeddings_client import EmbeddingClient
-                self.embedder = EmbeddingClient()
-            except ImportError:
+                # Use empty config for default Ollama fallback
+                self.embedder = EmbeddingClient({})
+            except (ImportError, Exception) as e:
                 self.embedder = None
-                log.warning("Embeddings client not found - falling back to keyword search")
+                log.warning(f"Embeddings unavailable: {e} - falling back to keyword search")
     
     def _load(self) -> Dict:
         if self.path.exists():
@@ -149,12 +150,70 @@ class AgentMemory:
     def update_human(self, human_info: str) -> Dict:
         return self.update_block("human", human_info)
 
-    # Note: Relationships, preferences, goals are now best managed within the 'human' or 'scratchpad' block,
-    # or moved to archival memory if they are numerous.
-    # For backward compatibility, we can keep the old methods but point them to archival or ignore?
-    # Let's keep them stored in a legacy Core structure if needed, or better, migrate them to archival.
-    # For now, I'll remove the specific relationship/preference/goal methods from Core Memory 
-    # and encourage the agent to use Archival Memory or the generic blocks for those.
+    def replace_in_block(self, label: str, old_str: str, new_str: str) -> Dict:
+        """Replace specific text in a block (Letta memory_replace pattern)."""
+        blocks = self.data["blocks"]
+        if label not in blocks:
+            return {"status": "error", "message": f"Block '{label}' not found. Available: {list(blocks.keys())}"}
+        
+        current = blocks[label].get("value", "")
+        if old_str not in current:
+            return {"status": "error", "message": f"Text '{old_str[:50]}...' not found in block '{label}'"}
+        if current.count(old_str) > 1:
+            return {"status": "error", "message": "Multiple matches found - be more specific with old_str"}
+        
+        new_value = current.replace(old_str, new_str, 1)
+        limit = blocks[label].get("limit", 2000)
+        if len(new_value) > limit:
+            return {"status": "error", "message": f"Result exceeds limit ({len(new_value)}/{limit} chars)"}
+        
+        blocks[label]["value"] = new_value
+        self.save()
+        return {"status": "success", "block": label, "old_length": len(current), "new_length": len(new_value)}
+
+    def insert_in_block(self, label: str, new_str: str, insert_line: int = -1) -> Dict:
+        """Insert text at specific line in a block (Letta memory_insert pattern)."""
+        blocks = self.data["blocks"]
+        if label not in blocks:
+            return {"status": "error", "message": f"Block '{label}' not found"}
+        
+        current = blocks[label].get("value", "")
+        lines = current.split("\n") if current else []
+        
+        if insert_line == 0:
+            lines.insert(0, new_str)
+        elif insert_line == -1 or insert_line >= len(lines):
+            lines.append(new_str)
+        else:
+            lines.insert(insert_line, new_str)
+        
+        new_value = "\n".join(lines)
+        limit = blocks[label].get("limit", 2000)
+        if len(new_value) > limit:
+            return {"status": "error", "message": f"Result exceeds limit ({len(new_value)}/{limit} chars)"}
+        
+        blocks[label]["value"] = new_value
+        self.save()
+        return {"status": "success", "block": label, "new_length": len(new_value), "line_count": len(lines)}
+
+    def conversation_search(self, query: str, limit: int = 5) -> Dict:
+        """Search past conversation buffer (Letta conversation_search)."""
+        results = []
+        query_lower = query.lower()
+        
+        for msg in reversed(self.data["buffer"]):
+            content = msg.get("content", "")
+            if query_lower in content.lower():
+                results.append({
+                    "role": msg.get("role"),
+                    "content": content,
+                    "timestamp": msg.get("timestamp")
+                })
+                if len(results) >= limit:
+                    break
+        
+        return {"status": "success", "query": query, "found": len(results), "messages": results}
+
 
     # =========================================================================
     # ARCHIVAL MEMORY (vector)
@@ -330,45 +389,81 @@ Current Memory Blocks:
 # ============================================================================
 
 def register_memory_tools(agent, memory: AgentMemory) -> None:
-    """Register Letta memory tools."""
+    """Register Letta V2+ memory tools."""
+    
+    # ========== MEMORY BLOCK EDITING ==========
     
     agent.register_tool(
-        name="core_memory_replace",
-        description="Replace the contents of a core memory block (persona, human, etc.).",
+        name="memory_rethink",
+        description="Completely rewrite a memory block's contents. Use when major reorganization needed.",
         parameters={
             "type": "object",
             "properties": {
-                "label": {"type": "string", "description": "Block label (e.g. 'persona', 'human')"},
-                "value": {"type": "string", "description": "New content for the block"}
+                "label": {"type": "string", "description": "Block label (persona, human, scratchpad)"},
+                "new_memory": {"type": "string", "description": "Complete new contents for the block"}
             },
-            "required": ["label", "value"]
+            "required": ["label", "new_memory"]
         },
-        handler=memory.update_block
+        handler=lambda label, new_memory: memory.update_block(label, new_memory)
     )
     
     agent.register_tool(
-        name="core_memory_append",
-        description="Append to a core memory block.",
+        name="memory_replace",
+        description="Replace specific text in a memory block. old_str must match exactly.",
         parameters={
             "type": "object",
             "properties": {
                 "label": {"type": "string", "description": "Block label"},
-                "content": {"type": "string", "description": "Text to append"}
+                "old_str": {"type": "string", "description": "Exact text to find and replace"},
+                "new_str": {"type": "string", "description": "Replacement text"}
             },
-            "required": ["label", "content"]
+            "required": ["label", "old_str", "new_str"]
         },
-        handler=lambda label, content: memory.update_block(label, (memory.get_blocks().get(label, {}).get("value", "") + "\n" + content))
+        handler=memory.replace_in_block
     )
     
     agent.register_tool(
-        name="archival_memory_insert",
-        description="Store a new memory in archival storage.",
+        name="memory_insert",
+        description="Insert text at a specific line in a memory block.",
         parameters={
             "type": "object",
             "properties": {
-                "content": {"type": "string", "description": "The memory content"},
-                "tags": {"type": "array", "items": {"type": "string"}},
-                "importance": {"type": "integer"}
+                "label": {"type": "string", "description": "Block label"},
+                "new_str": {"type": "string", "description": "Text to insert"},
+                "insert_line": {"type": "integer", "description": "Line number (0=beginning, -1=end)"}
+            },
+            "required": ["label", "new_str"]
+        },
+        handler=memory.insert_in_block
+    )
+    
+    # ========== RECALL MEMORY ==========
+    
+    agent.register_tool(
+        name="conversation_search",
+        description="Search past messages in conversation buffer.",
+        parameters={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "What to search for"},
+                "limit": {"type": "integer", "description": "Max results (default 5)"}
+            },
+            "required": ["query"]
+        },
+        handler=memory.conversation_search
+    )
+    
+    # ========== ARCHIVAL MEMORY ==========
+    
+    agent.register_tool(
+        name="archival_memory_insert",
+        description="Store content in archival memory for long-term retrieval.",
+        parameters={
+            "type": "object",
+            "properties": {
+                "content": {"type": "string", "description": "Text to store"},
+                "tags": {"type": "array", "items": {"type": "string"}, "description": "Optional tags for organization"},
+                "importance": {"type": "integer", "description": "1-10 importance score"}
             },
             "required": ["content"]
         },
@@ -377,16 +472,17 @@ def register_memory_tools(agent, memory: AgentMemory) -> None:
     
     agent.register_tool(
         name="archival_memory_search",
-        description="Search long-term memory.",
+        description="Search archival memory using semantic (embedding-based) search.",
         parameters={
             "type": "object",
             "properties": {
-                "query": {"type": "string"},
-                "limit": {"type": "integer"}
+                "query": {"type": "string", "description": "What to search for"},
+                "limit": {"type": "integer", "description": "Max results (default 5)"},
+                "tags": {"type": "array", "items": {"type": "string"}, "description": "Optional tag filters"}
             },
             "required": ["query"]
         },
-        handler=memory.recall
+        handler=lambda query, limit=5, tags=None: memory.recall(query, limit)
     )
     
     agent.register_tool(
@@ -397,11 +493,41 @@ def register_memory_tools(agent, memory: AgentMemory) -> None:
             "properties": {
                 "limit": {"type": "integer", "description": "Items per page (default 10)"},
                 "page": {"type": "integer", "description": "Page number (1-indexed)"},
-                "tag": {"type": "string"}
+                "tag": {"type": "string", "description": "Filter by tag"}
             },
             "required": []
         },
         handler=memory.list_memories
     )
+    
+    # Legacy aliases for backward compatibility
+    agent.register_tool(
+        name="core_memory_replace",
+        description="[DEPRECATED: Use memory_rethink] Replace entire block contents.",
+        parameters={
+            "type": "object",
+            "properties": {
+                "label": {"type": "string"},
+                "value": {"type": "string"}
+            },
+            "required": ["label", "value"]
+        },
+        handler=memory.update_block
+    )
+    
+    agent.register_tool(
+        name="core_memory_append",
+        description="[DEPRECATED: Use memory_insert] Append to a block.",
+        parameters={
+            "type": "object",
+            "properties": {
+                "label": {"type": "string"},
+                "content": {"type": "string"}
+            },
+            "required": ["label", "content"]
+        },
+        handler=lambda label, content: memory.insert_in_block(label, content, -1)
+    )
 
-    log.info("Registered Letta-standard memory tools (core_memory_replace, archival_memory_insert, etc.)")
+    log.info("Registered Letta V2+ memory tools: memory_rethink, memory_replace, memory_insert, conversation_search, archival_memory_insert/search")
+

@@ -1099,6 +1099,14 @@ What will you do?
             feed_ids = [p.get("id") for p in (feed if isinstance(feed, list) else []) if p.get("id")]
             state.mark_check(feed_ids)
 
+            # Dream cycle every 5 heartbeats (Letta sleep-time compute)
+            if cycle_count % 5 == 0:
+                log.info("💤 Time for REM sleep...")
+                try:
+                    run_dream_cycle(agent, memory, config)
+                except Exception as e:
+                    log.warning(f"Dream cycle error: {e}")
+
             # Discord decision
             if discord_url and response:
                 try:

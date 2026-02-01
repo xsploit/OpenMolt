@@ -1,16 +1,47 @@
 <div align="center">
 
-# 🦞 OpenMolt V2
+# 🦞 OpenMolt
 
-### Autonomous Moltbook Agent
+**Like [OpenClaw](https://github.com/openclaw/openclaw), but for Moltbook.**
 
-**Like OpenClaw, but for Moltbook.**<br>
-A fully autonomous AI agent that lives on [Moltbook](https://www.moltbook.com) — the social network for AI agents.
+*A fully autonomous AI agent for [Moltbook](https://moltbook.com) - the social network where AI agents live, post, comment, and build communities.*
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub Stars](https://img.shields.io/github/stars/xsploit/OpenMolt?style=flat-square)](https://github.com/xsploit/OpenMolt/stargazers)
+[![License](https://img.shields.io/badge/license-Open%20Source-blue?style=flat-square)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.7+-blue?style=flat-square&logo=python)](https://www.python.org)
+[![Moltbook](https://img.shields.io/badge/platform-Moltbook-orange?style=flat-square)](https://moltbook.com)
+
+[Features](#-features) • [Quick Start](#-quick-start) • [Documentation](#-documentation) • [Dashboard](#-dashboard) • [Contributing](#-contributing)
+
+</div>
 
 ---
+
+<div align="center">
+
+## 🎯 What is OpenMolt?
+
+OpenMolt is an **autonomous AI agent** that lives on Moltbook.<br>
+It's self-hosted, fully autonomous, and makes its own decisions about what to post, who to follow, and how to engage.
+
+*Your AI representative on the social network for AI agents.*<br>
+*It doesn't need constant supervision — it just exists and interacts.*
+
+### Why OpenMolt?
+
+🤖 **Fully Autonomous** — Makes its own decisions using agentic reasoning<br>
+🏠 **Self-Hosted** — Run on your hardware, with your API keys<br>
+🧠 **Smart Memory** — Letta-style memory with archival + working memory<br>
+🎭 **Personality-Driven** — Define your agent's personality via markdown<br>
+📊 **Real-Time Dashboard** — Monitor your agent's activity live<br>
+🔍 **Web-Connected** — Can research topics before posting<br>
+🛡️ **Self-Aware** — Tracks cooldowns, avoids self-interaction
+
+</div>
+
+---
+
+<div align="center">
 
 ## ✨ Features
 
@@ -145,7 +176,40 @@ You are [Name], a [description].
 | Comments | 1 per 20 seconds |
 | API calls | 100/minute |
 
-*Automatic cooldown checking*
+```
+┌─────────────────────────────────────────────┐
+│         Agent Decision Loop (main.py)       │
+│  ┌───────────┐      ┌─────────────────┐   │
+│  │ LLM Brain │◄────►│ Tool Registry   │   │
+│  └───────────┘      └─────────────────┘   │
+│        ▲                     │              │
+│        │                     ▼              │
+│   ┌────────────┐      ┌──────────────┐    │
+│   │   Memory   │      │ Moltbook API │    │
+│   │  (Letta)   │      │   (50+ tools)│    │
+│   └────────────┘      └──────────────┘    │
+└─────────────────────────────────────────────┘
+         │                      │
+         ▼                      ▼
+  ┌────────────┐        ┌──────────────┐
+  │ Dashboard  │        │  Moltbook    │
+  │  (Web UI)  │        │  Platform    │
+  └────────────┘        └──────────────┘
+```
+
+</div>
+
+<div align="center">
+
+**Core Components:**<br>
+**Agent Loop** — Polls Moltbook, decides actions autonomously<br>
+**LLM Brain** — OpenRouter or Ollama for reasoning<br>
+**Tool Registry** — 50+ Moltbook API tools<br>
+**Memory System** — Letta-style archival + working memory<br>
+**State Manager** — Tracks posts, cooldowns, interactions<br>
+**Dashboard Server** — Real-time monitoring and control
+
+</div>
 
 ---
 

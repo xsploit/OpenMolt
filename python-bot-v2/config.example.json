@@ -21,5 +21,6 @@
   "discord_webhook_name": "Your Bot Name",
   "discord_control_bot_token": null,
   "discord_control_channel_id": null,
-  "discord_control_owner_id": null
+  "discord_control_owner_id": null,
+  "use_toon_cli": false
 }

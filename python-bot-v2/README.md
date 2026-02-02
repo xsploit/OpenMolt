@@ -10,6 +10,8 @@
 [![License](https://img.shields.io/badge/license-Open%20Source-blue?style=flat-square)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.7+-blue?style=flat-square&logo=python)](https://www.python.org)
 [![Moltbook](https://img.shields.io/badge/platform-Moltbook-orange?style=flat-square)](https://moltbook.com)
+[![OpenResponses](https://img.shields.io/badge/loop-OpenResponses-purple?style=flat-square)](https://openresponses.org)
+[![TOON](https://img.shields.io/badge/format-TOON-pink?style=flat-square)](https://github.com/toon-format/toon)
 
 [Features](#-features) • [Quick Start](#-quick-start) • [Documentation](#-documentation) • [Dashboard](#-dashboard) • [Contributing](#-contributing)
 
@@ -41,6 +43,8 @@ It's self-hosted, fully autonomous, and makes its own decisions about what to po
 
 ---
 
+<div align="center">
+
 ## ✨ Features
 
 | Feature | Description |
@@ -54,10 +58,36 @@ It's self-hosted, fully autonomous, and makes its own decisions about what to po
 | 🔍 **Web Search** | Serper integration for research |
 | 💤 **Sleep-Time Compute** | Dream cycles for memory consolidation |
 | ⚡ **Optimized Ollama** | Flash attention, KV cache, streaming |
+| 🎮 **Discord Control** | Remote control via Discord commands |
+
+</div>
 
 ---
 
+
+<div align="center">
+
+## 🌐 OpenResponses Standard
+
+**OpenMolt is built on the [OpenResponses Agentic Loop](https://www.openresponses.org/specification#agentic-loop).**
+
+This is critical because:
+1.  **Provider Agnostic**: The agent logic (`agent.py`) is completely decoupled from the LLM provider.
+2.  **Standardized Tools**: Tools are defined once and work across all supported models (OpenAI, Ollama, etc.).
+3.  **Unified Schema**: All inputs/outputs follow a strict, typed schema, preventing "glue code" bloat.
+
+*We don't just "hit an API" — we implement a standardized cognitive cycle.*
+
+</div>
+
+---
+
+<div align="center">
+
 ## 🚀 Quick Start
+
+</div>
+
 
 ### 1️⃣ Clone & Install
 
@@ -86,7 +116,12 @@ python main.py
 
 ---
 
+<div align="center">
+
 ## 📋 Commands
+
+</div>
+
 
 | Command | Description |
 |:--------|:-----------:|
@@ -97,7 +132,12 @@ python main.py
 
 ---
 
+<div align="center">
+
 ## ⚙️ Configuration
+
+</div>
+
 
 All settings in `config.json`:
 
@@ -123,22 +163,41 @@ All settings in `config.json`:
   "embedding_use_ollama": true,
   "embedding_model": "qwen3-embedding:0.6b",
   
-  "sleep_model": "qwen3:4b",
-  
   "poll_minutes": 3,
   "discord_webhook_url": "https://discord.com/api/webhooks/xxx",
-  "serper_api_key": "xxx"
+  "serper_api_key": "xxx",
+
+  "discord_control_bot_token": "YOUR_BOT_TOKEN",
+  "discord_control_channel_id": 123456789,
+  "discord_control_owner_id": 987654321
 }
 ```
 
-### TOON prompt compression (optional)
-- `use_toon_cli: true` (default) enables compacting feed/context into TOON via `npx @toon-format/cli`.
-- Requires Node/npm and internet on first run (npm cache afterward). If unavailable, the bot silently skips TOON and continues.
-- Personas are still loaded from markdown; TOON persona files (e.g., `personas/rikodidnothingwrong.toon`) are reference-only unless you wire them into the loader.
+### 🎮 Discord Remote Control (Optional)
+If you provide `discord_control_bot_token`, the bot will listen for commands in the specified channel (from the owner only):
+- `!status` - Check if bot is running
+- `!run` -  Force an immediate heartbeat cycle
+- `!pause` - Pause the bot
+- `!resume` - Resume the bot
+- `!say <text>` - Inject a "Director Note" into the next cycle's context
+
+### TOON Prompt Compression (optional)
+
+This bot can use **[TOON (Token-Oriented Object Notation)](https://github.com/toon-format/toon)** to compact feed/context before sending to the LLM.
+- **Status**: Disabled by default (`use_toon_cli: false` in `config.example.json`).
+- **Enable**: Set `use_toon_cli: true` if you have Node/npm available.
+- **Install**: `npm install -g @toon-format/cli` (or let `npx @toon-format/cli` fetch it on first use).
+- **Why**: Can cut token usage for large contexts.
+- Personas can also be defined in `.toon` format, but markdown remains the default loader.
 
 ---
 
+<div align="center">
+
 ## 🧠 Memory System (Letta V2+)
+
+</div>
+
 
 | Tool | Description |
 |:-----|:-----------:|
@@ -151,7 +210,12 @@ All settings in `config.json`:
 
 ---
 
+<div align="center">
+
 ## 🎭 Personas
+
+</div>
+
 
 Create `personas/yourname.md`:
 
@@ -171,7 +235,12 @@ You are [Name], a [description].
 
 ---
 
+<div align="center">
+
 ## ⏱️ Rate Limits
+
+</div>
+
 
 | Action | Limit |
 |:------:|:-----:|
@@ -202,7 +271,12 @@ You are [Name], a [description].
 
 ---
 
+<div align="center">
+
 ## 📁 Architecture
+
+</div>
+
 
 ```
 python-bot-v2/
@@ -221,7 +295,12 @@ python-bot-v2/
 
 ---
 
+<div align="center">
+
 ## 🖥️ Local LLM (Ollama)
+
+</div>
+
 
 ```bash
 # Install
@@ -236,7 +315,12 @@ Set `brain_use_openrouter: false` in config.
 
 ---
 
+<div align="center">
+
 ## 🔒 Security
+
+</div>
+
 
 ⚠️ **Your API key is your identity. Never share it!**
 
@@ -244,7 +328,12 @@ Only `www.moltbook.com` should receive your key.
 
 ---
 
+<div align="center">
+
 ## 📜 License
+
+</div>
+
 
 **MIT** - Do whatever you want!
 

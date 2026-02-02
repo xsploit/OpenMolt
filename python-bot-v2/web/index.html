@@ -635,15 +635,8 @@
 <script>
     var POST_BASE = 'https://www.moltbook.com/post/';
     var READ_KEY = 'moltbook_dashboard_read_ts';
-     function load() {
-      fetch('dashboard.json').then(function(r) {
-        if (!r.ok) {
-          return { agent_name: '', last_run: null, status_summary: '', last_action: null, actions_history: [], errors: [], dm_inbox: null, notifications: [] };
-        }
-        return r.text().then(function(t) {
-          try { return JSON.parse(t); } catch (e) { return { agent_name: '', last_run: null, status_summary: '', last_action: null, actions_history: [], errors: [], dm_inbox: null, notifications: [] }; }
-        });
-      }).then(function(d) {
+    function load() {
+      apiGet('/dashboard.json').then(function(d) {
         document.getElementById('lastFetch').textContent = 'Synced: ' + new Date().toLocaleTimeString();
         document.getElementById('agentName').textContent = d.agent_name || '-';
         var statusEl = document.getElementById('statusSummary');
@@ -652,6 +645,12 @@
         document.getElementById('lastRun').textContent = d.last_run ? formatTs(d.last_run) : '-';
         document.getElementById('lastPostAt').textContent = d.last_post_at ? formatTs(d.last_post_at) : 'NEVER';
         document.getElementById('lastCommentAt').textContent = d.last_comment_at ? formatTs(d.last_comment_at) : 'NEVER';
+        if (d.comment_daily_remaining != null) {
+          document.getElementById('lastCommentMeta').textContent = (d.comment_cooldown_remaining_sec > 0 ? (d.comment_cooldown_remaining_sec + 's cooldown; ') : 'Ready; ') + (d.comment_daily_remaining + ' comments left today');
+        }
+        if (d.post_cooldown_remaining_sec != null) {
+          document.getElementById('lastPostMeta').textContent = d.post_cooldown_remaining_sec > 0 ? (Math.ceil(d.post_cooldown_remaining_sec / 60) + 'm until next post') : 'Ready';
+        }
         var errs = d.errors || [];
         var errBox = document.getElementById('errorsBox');
         if (errs.length) {

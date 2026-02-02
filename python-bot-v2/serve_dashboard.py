@@ -169,6 +169,55 @@ def _api_config():
     }
 
 
+def _api_state():
+    """Expose bot-state.json summary for dashboard."""
+    from state import BotState
+    state = BotState()
+    summary = state.get_status_summary()
+    return {
+        "last_check": summary.get("last_check"),
+        "last_post_at": summary.get("last_post_at"),
+        "last_comment_at": summary.get("last_comment_at"),
+        "can_post": summary.get("can_post"),
+        "can_comment": summary.get("can_comment"),
+        "post_cooldown_remaining_sec": summary.get("post_cooldown_remaining_min", 0) * 60,
+        "comment_cooldown_remaining_sec": summary.get("comment_cooldown_remaining_sec", 0),
+        "comment_daily_remaining": summary.get("comment_daily_remaining", 50),
+        "our_post_ids": summary.get("our_post_ids", []),
+        "activity_log": summary.get("recent_activity", []),
+    }
+
+
+def _api_dashboard_json():
+    """Dynamic dashboard.json replacement (avoids stale file)."""
+    cfg = _load_config()
+    key = cfg["moltbook_api_key"]
+    state_data = _api_state()
+    status_data = _api_status(key) if key else {}
+    dm_check = _api_dm_check(key) if key else {}
+    last_action = None
+    actions_history = []
+    activity = state_data.get("activity_log") or []
+    if activity:
+        last_action = activity[0]
+        actions_history = activity
+    return {
+        "agent_name": cfg.get("persona", ""),
+        "last_run": state_data.get("last_check"),
+        "status_summary": status_data.get("status") if isinstance(status_data, dict) else "",
+        "last_action": last_action,
+        "last_post_at": state_data.get("last_post_at"),
+        "last_comment_at": state_data.get("last_comment_at"),
+        "actions_history": actions_history,
+        "errors": [],
+        "notifications": [],
+        "dm_inbox": dm_check if isinstance(dm_check, dict) else {},
+        "post_cooldown_remaining_sec": state_data.get("post_cooldown_remaining_sec"),
+        "comment_cooldown_remaining_sec": state_data.get("comment_cooldown_remaining_sec"),
+        "comment_daily_remaining": state_data.get("comment_daily_remaining"),
+    }
+
+
 def _api_pause():
     import dashboard
     dashboard.set_paused(True)
@@ -261,6 +310,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._send_json(_api_submolts(key))
         elif path == "/api/config":
             self._send_json(_api_config())
+        elif path == "/api/state":
+            self._send_json(_api_state())
+        elif path == "/dashboard.json":
+            self._send_json(_api_dashboard_json())
         elif path == "/api/paused":
             import dashboard
             self._send_json({"paused": dashboard.get_paused()})

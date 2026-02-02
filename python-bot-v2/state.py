@@ -83,6 +83,10 @@ class BotState:
             "submolts_cache": None,
             "submolts_cached_at": None,
             "activity_log": [],
+            "comment_day": None,
+            "comment_count_today": 0,
+            "dream_actions_since": 0,
+            "last_dream_at": None,
         }
 
     def save(self) -> None:
@@ -146,6 +150,22 @@ class BotState:
         remaining = COMMENT_COOLDOWN_SEC - (time.time() - last)
         return max(0, int(remaining))
 
+    def _reset_daily_comment_if_new_day(self):
+        """Reset daily comment counter if day changed."""
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        if self.data.get("comment_day") != today:
+            self.data["comment_day"] = today
+            self.data["comment_count_today"] = 0
+
+    def can_comment_today(self, limit: int = 50) -> bool:
+        """Check daily comment cap (50/day)."""
+        self._reset_daily_comment_if_new_day()
+        return (self.data.get("comment_count_today") or 0) < limit
+
+    def comment_daily_remaining(self, limit: int = 50) -> int:
+        self._reset_daily_comment_if_new_day()
+        return max(0, limit - (self.data.get("comment_count_today") or 0))
+
     # ========== State Updates ==========
 
     def mark_check(self, post_ids: Optional[List[str]] = None) -> None:
@@ -167,6 +187,8 @@ class BotState:
 
     def mark_comment(self, post_id: str, comment_id: str) -> None:
         """Record that we created a comment."""
+        self._reset_daily_comment_if_new_day()
+        self.data["comment_count_today"] = (self.data.get("comment_count_today") or 0) + 1
         self.data["last_comment_at"] = _now_iso()
         ids = self.our_comment_ids + [comment_id]
         self.data["our_comment_ids"] = ids[-50:]
@@ -192,6 +214,8 @@ class BotState:
         log_list = self.data.get("activity_log") or []
         log_list.append(entry)
         self.data["activity_log"] = log_list[-50:]
+        if action in ("post", "comment", "upvote", "dm_reply", "dm_request"):
+            self.data["dream_actions_since"] = (self.data.get("dream_actions_since") or 0) + 1
 
     # ========== Helpers ==========
 
@@ -220,8 +244,11 @@ class BotState:
             "can_post": self.can_post(),
             "can_comment": self.can_comment(),
             "post_cooldown_remaining_min": self.post_cooldown_remaining() // 60,
+            "post_cooldown_remaining_sec": self.post_cooldown_remaining(),
             "comment_cooldown_remaining_sec": self.comment_cooldown_remaining(),
             "our_post_count": len(self.our_post_ids),
             "our_comment_count": len(self.our_comment_ids),
             "recent_activity": self.get_recent_activity(5),
+            "comment_daily_remaining": self.comment_daily_remaining(),
+            "our_post_ids": self.our_post_ids[:10],
         }

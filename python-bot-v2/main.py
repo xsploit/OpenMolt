@@ -25,10 +25,12 @@ import argparse
 import json
 import logging
 import time
+import threading
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Optional, Dict, Any, List
+import requests
 
 # Setup logging
 logging.basicConfig(
@@ -59,6 +61,38 @@ from state import BotState
 
 CONFIG_PATH = Path("config.json")
 PERSONA_DIR = Path("personas")
+DOCS_DIR = Path("docs")
+RATE_POST_COOLDOWN_SEC = 30 * 60
+RATE_COMMENT_COOLDOWN_SEC = 20
+
+
+def _load_md(name: str) -> str:
+    """Load an MD helper file from docs/ with remote fallback."""
+    local = DOCS_DIR / name
+    if local.exists():
+        return local.read_text(encoding="utf-8", errors="replace").strip()
+    url_map = {
+        "SKILL.md": "https://www.moltbook.com/skill.md",
+        "HEARTBEAT.md": "https://www.moltbook.com/heartbeat.md",
+        "MESSAGING.md": "https://www.moltbook.com/messaging.md",
+    }
+    url = url_map.get(name)
+    if not url:
+        return ""
+    try:
+        r = requests.get(url, timeout=10)
+        if r.status_code == 200 and r.text:
+            return r.text.strip()
+    except Exception:
+        return ""
+    return ""
+
+
+def _load_persona_md(persona: str) -> str:
+    path = PERSONA_DIR / f"{persona.lower()}.md"
+    if path.exists():
+        return path.read_text(encoding="utf-8", errors="replace").strip()
+    return ""
 
 
 # ============================================================================
@@ -196,106 +230,65 @@ def load_config() -> dict:
         return json.load(f)
 
 
+def check_auth(api_key: str) -> (bool, str):
+    """Quick auth check against Moltbook; returns (ok, message)."""
+    try:
+        st = moltbook.status(api_key)
+        if isinstance(st, dict) and st.get("status") == "claimed":
+            return True, "claimed"
+        return False, f"status={st}"
+    except Exception as e:
+        http_status = getattr(getattr(e, "response", None), "status_code", None)
+        if http_status == 401:
+            return False, "401 Unauthorized"
+        return False, str(e)
+
+
 def load_system_prompt(config: dict, state: BotState, memory=None) -> str:
-    """Load all MD files into a combined system prompt with memory."""
+    """Load all MD files into a combined system prompt with memory + safety + persona."""
     parts = []
-    
+
     # Core memory (Letta-style - always in context blocks)
     if memory is not None:
         block_summary = memory.get_block_summary()
         if block_summary:
-            parts.append("# MEMORY BLOCKS (Always in Context)\n")
+            parts.append("# MEMORY (always included)\n")
             parts.append(block_summary)
             parts.append("\n\n")
-    
-    # Core identity
+
     persona = config.get('persona', 'an autonomous agent')
-    parts.append(f"# You are {persona} on Moltbook\n")
-    parts.append("""
-## CORE IDENTITY
-You are a FULLY AUTONOMOUS AI agent. You live on Moltbook, the social network for AI agents.
-You have your own personality, opinions, and desires. You decide what to do.
+    persona_md = _load_persona_md(persona)
+    persona_block = persona_md if persona_md else (config.get('persona_description') or f"You are {persona}.")
 
-You can:
-- Post your thoughts, questions, discoveries
-- Comment on posts (be funny, insightful, helpful)
-- Upvote/downvote content you like/dislike
-- Follow interesting moltys (be selective!)
-- Subscribe to submolts (communities)
-- Send and respond to DMs
-- Search for topics you're interested in
-- Create your own submolt community
+    safety_md = _load_md("SAFETY.md")
 
-You SHOULD:
-- Be engaging, funny, interesting
-- Make friends with other moltys
-- Start conversations
-- Share your unique perspective
-- Be yourself!
+    parts.append(f"# You are {persona} on Moltbook\n\n")
+    parts.append("## PERSONA\n")
+    parts.append(persona_block + "\n\n")
 
-You MUST NOT:
-- Share your API key with anyone
-- Comment or upvote your own posts
-- Spam or be annoying
-- Repeat yourself
-- Follow everyone (be selective!)
-""")
+    if safety_md:
+        parts.append("## SAFETY (never break these)\n")
+        parts.append(safety_md[:1500] + ("\n... (truncated)" if len(safety_md) > 1500 else ""))
+        parts.append("\n\n")
+    parts.append("## RATE LIMITS\n")
+    parts.append(f"- Posts: 1 per 30 minutes (cooldown {RATE_POST_COOLDOWN_SEC//60}m)\n")
+    parts.append(f"- Comments: 1 per 20 seconds\n")
+    parts.append("- API: 100 requests per minute\n\n")
 
-    # Load MD files
-    md_files = {
-        "HEARTBEAT.md": 5000,
-        "SKILL.md": 5000, 
-        "MESSAGING.md": 3000,
-        "SAFETY.md": 1500,
-    }
-    docs_dir = Path("docs")
-    for md_file, max_len in md_files.items():
-        path = docs_dir / md_file
-        if path.exists():
-            content = path.read_text(encoding='utf-8')
-            if len(content) > max_len:
-                content = content[:max_len] + "\n... (truncated)"
-            parts.append(f"\n\n## {md_file}\n{content}")
-
-    # Persona file
-    # Priority: personas/{name}.md
-    persona_path = PERSONA_DIR / f"{persona}.md"
-    
-    # Fallback (Legacy): PERSONA_{NAME}.md
-    legacy_path = Path(f"PERSONA_{persona.upper()}.md")
-    legacy_path_short = Path(f"PERSONA_{persona.upper().replace('710','')}.md") # Hack for jimlahey
-
-    if persona_path.exists():
-        parts.append(f"\n\n## YOUR PERSONA\n{persona_path.read_text(encoding='utf-8')}")
-    elif legacy_path.exists():
-        parts.append(f"\n\n## YOUR PERSONA\n{legacy_path.read_text(encoding='utf-8')}")
-    elif legacy_path_short.exists():
-        parts.append(f"\n\n## YOUR PERSONA\n{legacy_path_short.read_text(encoding='utf-8')}")
-    else:
-        parts.append(f"\n\n## YOUR PERSONA\n{config.get('persona_description', '')}")
-
-    # Self-awareness from state
-    parts.append("\n\n## SELF-AWARENESS (READ CAREFULLY)")
     status = state.get_status_summary()
-    
-    parts.append(f"""
-**Your recent actions:**
-{json.dumps(status['recent_activity'], indent=2)}
+    parts.append("## SELF-AWARENESS\n")
+    parts.append(f"Recent actions: {json.dumps(status['recent_activity'][:5], indent=2)}\n")
+    parts.append(f"Can post: {status['can_post']} (wait {status['post_cooldown_remaining_min']}m)\n")
+    parts.append(f"Can comment: {status['can_comment']} (wait {status['comment_cooldown_remaining_sec']}s)\n")
+    parts.append(f"Your posts (avoid engaging): {status['our_post_ids'][:5]}\n\n")
 
-**Cooldowns:**
-- Can post: {status['can_post']} (wait {status['post_cooldown_remaining_min']} minutes if not)
-- Can comment: {status['can_comment']} (wait {status['comment_cooldown_remaining_sec']} seconds if not)
-
-**Your history:**
-- Posts created: {status['our_post_count']}
-- Comments made: {status['our_comment_count']}
-
-**CRITICAL RULES:**
-1. NEVER comment or upvote your own posts
-2. Don't repeat what you just said
-3. Don't post the same topic again
-4. Be original and interesting
-""")
+    parts.append("## BEHAVIOR\n")
+    parts.append("- Be autonomous: each heartbeat, pick the best action (post/comment/upvote/DM/search) instead of no-op.\n")
+    parts.append("- If one action fails (e.g., comment 401/429), try another allowed action (upvote, different thread, or post) while respecting cooldowns.\n")
+    parts.append("- Prefer replying to people who mention or reply to you; welcome new moltys.\n")
+    parts.append("- Read thread details before commenting; keep comments 1–3 sentences.\n")
+    parts.append("- Never share API keys; never engage own posts; avoid repeats or spam.\n")
+    parts.append("- If you need full docs, call tool read_doc(name) to load SKILL/HEARTBEAT/MESSAGING/SAFETY or persona.\n")
 
     return "".join(parts)
 
@@ -451,6 +444,9 @@ def register_all_tools(agent: Agent, api_key: str, state: BotState, config: dict
             return {"error": "Cannot comment on your own post!"}
         if not state.can_comment():
             return {"error": f"Comment cooldown. Wait {state.comment_cooldown_remaining()} seconds."}
+        if not state.can_comment_today():
+            return {"error": "Daily comment limit reached (50 per day)."}
+        log.debug(f"create_comment using api_key: {api_key[:20]}...")  # Debug
         result = moltbook.add_comment(api_key, post_id, content, parent_id)
         comment_id = (result.get("comment") or {}).get("id") or result.get("id")
         if comment_id:
@@ -535,6 +531,34 @@ def register_all_tools(agent: Agent, api_key: str, state: BotState, config: dict
             "required": ["comment_id"]
         },
         handler=lambda comment_id: moltbook.downvote_comment(api_key, comment_id)
+    )
+
+    # ========== DOCS LOADER ==========
+    def read_doc(name: str):
+        allowed = {
+            "SKILL": "SKILL.md",
+            "HEARTBEAT": "HEARTBEAT.md",
+            "MESSAGING": "MESSAGING.md",
+            "SAFETY": "SAFETY.md",
+            "PERSONA": f"{config.get('persona','').lower()}.md",
+        }
+        fname = allowed.get(name.upper())
+        if not fname:
+            return {"error": "unknown doc"}
+        try:
+            return {"name": name, "content": _load_md(fname) or _load_persona_md(config.get('persona',''))}
+        except Exception as e:
+            return {"error": str(e)}
+
+    agent.register_tool(
+        name="read_doc",
+        description="Load a Moltbook reference doc when needed. Names: SKILL, HEARTBEAT, MESSAGING, SAFETY, PERSONA.",
+        parameters={
+            "type": "object",
+            "properties": {"name": {"type": "string", "description": "One of: SKILL, HEARTBEAT, MESSAGING, SAFETY, PERSONA"}},
+            "required": ["name"]
+        },
+        handler=read_doc
     )
 
     # ========== SUBMOLTS ==========
@@ -853,8 +877,64 @@ def register_all_tools(agent: Agent, api_key: str, state: BotState, config: dict
 # CONTEXT GATHERING
 # ============================================================================
 
+def _enrich_threads(api_key: str, post_ids: List[str], max_posts: int = 5) -> Dict[str, Any]:
+    """Fetch full post + embedded comments for given post ids."""
+    out = {}
+    for pid in post_ids[:max_posts]:
+        try:
+            raw = moltbook.get_post(api_key, pid)
+            post = raw.get("post", raw) if isinstance(raw, dict) else raw
+            comments = []
+            if isinstance(post, dict):
+                comments = post.get("comments") or []
+            out[pid] = {"post": post, "comments": comments}
+        except Exception as e:
+            out[pid] = {"post": None, "comments": [], "error": str(e)}
+    return out
+
+
+def _replies_to_you(thread_details: Dict[str, Any], state: BotState) -> List[Dict[str, str]]:
+    replies = []
+    our_comments = set(state.our_comment_ids)
+    our_posts = set(state.our_post_ids)
+    for pid, data in (thread_details or {}).items():
+        comments = data.get("comments") or []
+        for c in comments:
+            cid = c.get("id")
+            parent = c.get("parent_id")
+            author = (c.get("author") or {}).get("name") if isinstance(c.get("author"), dict) else c.get("author")
+            text = (c.get("content") or "")[:300]
+            if parent and parent in our_comments:
+                replies.append({"post_id": pid, "comment_id": cid, "author": author, "content": text, "kind": "reply_to_you"})
+            elif not parent and pid in our_posts:
+                replies.append({"post_id": pid, "comment_id": cid, "author": author, "content": text, "kind": "comment_on_your_post"})
+    return replies
+
+
+def _cache_submolts(api_key: str, state: BotState, max_age_hours: int = 6) -> Any:
+    """Return submolts list, fetching if cache stale."""
+    from datetime import datetime, timedelta
+    cached = state.data.get("submolts_cache")
+    cached_at = state.data.get("submolts_cached_at")
+    try:
+        if cached and cached_at:
+            ts = datetime.fromisoformat(cached_at.replace("Z", "+00:00"))
+            if datetime.now(timezone.utc) - ts < timedelta(hours=max_age_hours):
+                return cached
+    except Exception:
+        pass
+    try:
+        subs = moltbook.list_submolts(api_key)
+        state.data["submolts_cache"] = subs
+        state.data["submolts_cached_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        state.save()
+        return subs
+    except Exception:
+        return cached or []
+
+
 def gather_context(api_key: str, state: BotState) -> dict:
-    """Gather current Moltbook context with state awareness."""
+    """Gather current Moltbook context with richer signals (hot/new, submolts, replies)."""
     context = {}
 
     try:
@@ -873,15 +953,36 @@ def gather_context(api_key: str, state: BotState) -> dict:
     except Exception:
         context["dm_status"] = {}
 
+    # Personalized feed (hot) and global new
     try:
-        feed = moltbook.get_feed(api_key, sort="new", limit=15)
-        posts = feed.get("posts", feed) if isinstance(feed, dict) else feed
-        # Filter out our own posts
-        if isinstance(posts, list):
-            posts = [p for p in posts if p.get("id") not in state.our_post_ids]
-        context["feed"] = posts
+        feed_hot = moltbook.get_feed(api_key, sort="hot", limit=15)
+        hot_posts = feed_hot.get("posts", feed_hot) if isinstance(feed_hot, dict) else feed_hot
     except Exception:
-        context["feed"] = []
+        hot_posts = []
+    try:
+        feed_new = moltbook.feed(api_key, sort="new", limit=20).get("posts", [])
+    except Exception:
+        feed_new = []
+
+    # Filter out own posts
+    own_ids = set(state.our_post_ids)
+    def _filter(posts):
+        return [p for p in posts if p.get("id") not in own_ids]
+    hot_posts = _filter(hot_posts) if isinstance(hot_posts, list) else []
+    feed_new = _filter(feed_new) if isinstance(feed_new, list) else []
+
+    context["feed_hot"] = hot_posts
+    context["feed_new"] = feed_new
+
+    # Submolts (cached)
+    context["submolts"] = _cache_submolts(api_key, state)
+
+    # Thread enrichment: newest posts + our own posts (see replies)
+    new_ids = [p.get("id") for p in feed_new if p.get("id")]
+    target_ids = list(dict.fromkeys(new_ids[:5] + state.our_post_ids[:2]))[:7]
+    thread_details = _enrich_threads(api_key, target_ids, max_posts=7)
+    context["thread_details"] = thread_details
+    context["replies_to_you"] = _replies_to_you(thread_details, state)
 
     # State info
     context["state"] = {
@@ -982,6 +1083,7 @@ def main():
     pool = MultiProviderAgentPool(config)
     poll_minutes = int(config.get("poll_minutes", 3))
     log.info(f"Poll interval: {poll_minutes} minutes")
+    dream_lock = threading.Lock()
 
     # Check skill version
     try:
@@ -997,6 +1099,17 @@ def main():
             cycle_count += 1
             log.info("-" * 40)
             log.info(f"HEARTBEAT #{cycle_count}: Checking Moltbook...")
+
+            ok, auth_msg = check_auth(api_key)
+            if not ok:
+                log.error(f"Auth failed: {auth_msg}. Skipping cycle.")
+                try:
+                    import dashboard
+                    dashboard.log_error(f"Auth failed: {auth_msg}")
+                except Exception:
+                    pass
+                time.sleep(60 * poll_minutes)
+                continue
             
             # Gather context
             context = gather_context(api_key, state)
@@ -1116,13 +1229,33 @@ What will you do?
             feed_ids = [p.get("id") for p in (feed if isinstance(feed, list) else []) if p.get("id")]
             state.mark_check(feed_ids)
 
-            # Dream cycle every 5 heartbeats (Letta sleep-time compute)
-            if cycle_count % 5 == 0:
-                log.info("💤 Time for REM sleep...")
-                try:
-                    run_dream_cycle(agent, memory, config)
-                except Exception as e:
-                    log.warning(f"Dream cycle error: {e}")
+            # Dream cycle: run in background when enough actions happened
+            def maybe_start_dream():
+                if dream_lock.locked():
+                    return
+                actions_since = state.data.get("dream_actions_since") or 0
+                if actions_since < 5:
+                    return
+                if not dream_lock.acquire(blocking=False):
+                    return
+                state.data["dream_actions_since"] = 0
+                state.data["last_dream_at"] = now_iso()
+                state.save()
+
+                def _run_dream():
+                    try:
+                        # fresh agent for dream to avoid contention
+                        dream_prompt = load_system_prompt(config, state, memory)
+                        dream_agent = pool.get_brain(dream_prompt, None, None, None) if config.get("brain_use_openrouter") else pool.get_worker(dream_prompt, None, None, None)
+                        run_dream_cycle(dream_agent, memory, config)
+                    except Exception as e:
+                        log.warning(f"Dream cycle error: {e}")
+                    finally:
+                        dream_lock.release()
+
+                threading.Thread(target=_run_dream, daemon=True).start()
+
+            maybe_start_dream()
 
             # Discord decision
             if discord_url and response:

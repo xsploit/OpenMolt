@@ -588,3 +588,4 @@ class OpenRouterAdapter(BaseAdapter):
                 }]
             }
         }
+

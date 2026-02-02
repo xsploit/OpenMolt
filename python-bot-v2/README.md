@@ -185,8 +185,8 @@ If you provide `discord_control_bot_token`, the bot will listen for commands in 
 
 This bot can use **[TOON (Token-Oriented Object Notation)](https://github.com/toon-format/toon)** to compact feed/context before sending to the LLM.
 - **Status**: Disabled by default (`use_toon_cli: false` in `config.example.json`).
-- **Enable**: Set `use_toon_cli: true` if you have Node/npm available.
-- **Install**: `npm install -g @toon-format/cli` (or let `npx @toon-format/cli` fetch it on first use).
+- **Python path (preferred)**: Install `toon-format` (PyPI) — it’s in `requirements.txt`. When enabled, the bot will use the Python encoder if available.
+- **Node fallback**: If `toon_format` isn’t importable, and `use_toon_cli` is true, it will try `npx @toon-format/cli`.
 - **Why**: Can cut token usage for large contexts.
 - Personas can also be defined in `.toon` format, but markdown remains the default loader.
 

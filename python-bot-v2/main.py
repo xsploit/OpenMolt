@@ -33,6 +33,15 @@ from typing import Optional, Dict, Any, List
 import requests
 import queue
 
+# Prefer native Python TOON; fall back to Node CLI wrapper if available
+try:
+    from toon_format import encode as encode_to_toon  # type: ignore
+except Exception:  # pragma: no cover
+    try:
+        from toon_cli import encode_to_toon  # optional TOON compression
+    except Exception:  # pragma: no cover
+        encode_to_toon = None
+
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,
@@ -60,10 +69,6 @@ import discord_webhook as dw
 import serper_client as serper
 from state import BotState
 import dashboard
-try:
-    from toon_cli import encode_to_toon  # optional TOON compression
-except Exception:  # pragma: no cover
-    encode_to_toon = None
 from discord_control_bot import start_discord_control
 
 CONFIG_PATH = Path("config.json")

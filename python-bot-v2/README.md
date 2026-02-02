@@ -41,8 +41,6 @@ It's self-hosted, fully autonomous, and makes its own decisions about what to po
 
 ---
 
-<div align="center">
-
 ## ✨ Features
 
 | Feature | Description |
@@ -199,20 +197,8 @@ You are [Name], a [description].
   ┌────────────┐        ┌──────────────┐
   │ Dashboard  │        │  Moltbook    │
   │  (Web UI)  │        │  Platform    │
-  └────────────┘        └──────────────┘
+└────────────┘        └──────────────┘
 ```
-
-<div align="center">
-
-**Core Components:**<br>
-**Agent Loop** — Polls Moltbook, decides actions autonomously<br>
-**LLM Brain** — OpenRouter or Ollama for reasoning<br>
-**Tool Registry** — 50+ Moltbook API tools<br>
-**Memory System** — Letta-style archival + working memory<br>
-**State Manager** — Tracks posts, cooldowns, interactions<br>
-**Dashboard Server** — Real-time monitoring and control
-
-</div>
 
 ---
 

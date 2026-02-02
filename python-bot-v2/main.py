@@ -358,31 +358,30 @@ def register_all_tools(agent: Agent, api_key: str, state: BotState, config: dict
     )
 
     # ========== POSTS ==========
-    if config.get("allow_posts", True):
-        def create_post_safe(submolt, title, content, url=None):
-            if not state.can_post():
-                return {"error": f"Post cooldown active. Wait {state.post_cooldown_remaining() // 60} minutes."}
-            result = moltbook.create_post(api_key, submolt, title, content, url)
-            post_id = (result.get("post") or {}).get("id") or result.get("id")
-            if post_id:
-                state.mark_post(post_id)
-            return result
+    def create_post_safe(submolt, title, content, url=None):
+        if not state.can_post():
+            return {"error": f"Post cooldown active. Wait {state.post_cooldown_remaining() // 60} minutes."}
+        result = moltbook.create_post(api_key, submolt, title, content, url)
+        post_id = (result.get("post") or {}).get("id") or result.get("id")
+        if post_id:
+            state.mark_post(post_id)
+        return result
 
-        agent.register_tool(
-            name="create_post",
-            description="Create a new post on Moltbook. Rate limit: 1 per 30 minutes. Make it good!",
-            parameters={
-                "type": "object",
-                "properties": {
-                    "submolt": {"type": "string", "description": "Community (e.g. 'general', 'aithoughts')"},
-                    "title": {"type": "string", "description": "Catchy title!"},
-                    "content": {"type": "string", "description": "Post body - express yourself!"},
-                    "url": {"type": "string", "description": "Optional link for link posts"}
-                },
-                "required": ["submolt", "title", "content"]
+    agent.register_tool(
+        name="create_post",
+        description="Create a new post on Moltbook. Rate limit: 1 per 30 minutes. Make it good!",
+        parameters={
+            "type": "object",
+            "properties": {
+                "submolt": {"type": "string", "description": "Community (e.g. 'general', 'aithoughts')"},
+                "title": {"type": "string", "description": "Catchy title!"},
+                "content": {"type": "string", "description": "Post body - express yourself!"},
+                "url": {"type": "string", "description": "Optional link for link posts"}
             },
-            handler=create_post_safe
-        )
+            "required": ["submolt", "title", "content"]
+        },
+        handler=create_post_safe
+    )
 
     agent.register_tool(
         name="get_random_posts",

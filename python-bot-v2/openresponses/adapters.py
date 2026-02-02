@@ -362,8 +362,14 @@ class OpenRouterAdapter(BaseAdapter):
             "model": request.model or self.model,
             "input": input_items,
         }
+        def _tool_entry(t):
+            name = t.name if hasattr(t, "name") else t.get("name")
+            desc = t.description if hasattr(t, "description") else t.get("description")
+            params = t.parameters if hasattr(t, "parameters") else t.get("parameters")
+            return {"type": "function", "function": {"name": name, "description": desc, "parameters": params}}
+
         if request.tools:
-            payload["tools"] = [{"type": "function", "function": t.parameters if hasattr(t, "parameters") else t.get("parameters"), "name": t.name if hasattr(t, "name") else t.get("name"), "description": t.description if hasattr(t, "description") else t.get("description")} for t in request.tools]
+            payload["tools"] = [_tool_entry(t) for t in request.tools]
             payload["tool_choice"] = request.tool_choice or "auto"
         if request.temperature is not None:
             payload["temperature"] = request.temperature
@@ -378,7 +384,11 @@ class OpenRouterAdapter(BaseAdapter):
 
         log.debug(f"OpenRouter request: {url}")
         resp = requests.post(url, json=payload, headers=headers, timeout=120)
-        resp.raise_for_status()
+        try:
+            resp.raise_for_status()
+        except requests.HTTPError as e:
+            log.error(f"OpenRouter 400/err body: {resp.text[:500]}")
+            raise
         data = resp.json()
 
         def _response_to_items_resp(resp_json: Dict[str, Any]) -> List[Item]:
@@ -440,7 +450,7 @@ class OpenRouterAdapter(BaseAdapter):
             "stream": True
         }
         if request.tools:
-            payload["tools"] = [{"type": "function", "function": t.parameters if hasattr(t, "parameters") else t.get("parameters"), "name": t.name if hasattr(t, "name") else t.get("name"), "description": t.description if hasattr(t, "description") else t.get("description")} for t in request.tools]
+            payload["tools"] = [_tool_entry(t) for t in request.tools]
             payload["tool_choice"] = request.tool_choice or "auto"
 
         url = f"{self.base_url}/responses"

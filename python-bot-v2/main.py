@@ -1540,6 +1540,40 @@ What will you do?
             # Record to memory buffer
             memory.add_to_buffer("assistant", response[:500], {"cycle": now_iso()})
 
+            # Fallback: if the final response includes a post_id (JSON), log + notify
+            try:
+                parsed = json.loads(response)
+                if isinstance(parsed, dict) and parsed.get("post_id"):
+                    post_id = parsed.get("post_id")
+                    content_snip = (parsed.get("content") or "")[:200]
+                    try:
+                        dashboard.log_action("post", post_id=post_id, snippet=content_snip, submolt=None)
+                        state.data["last_post_at"] = now_iso()
+                        dashboard.update_cycle(
+                            agent_name=context.get("my_profile", {}).get("name", "Unknown"),
+                            status=f"pending={context.get('dm_status',{}).get('requests',{}).get('count',0)}, unread={context.get('dm_status',{}).get('messages',{}).get('total_unread',0)}, feed={len(context.get('feed',[]) or [])}",
+                            dm_inbox=context.get("dm_status"),
+                            last_post_at=state.data["last_post_at"],
+                            last_comment_at=state.data.get("last_comment_at"),
+                        )
+                    except Exception:
+                        pass
+                    if discord_url:
+                        try:
+                            dw.notify_post_created(
+                                discord_url,
+                                title="(post)",
+                                post_id=post_id,
+                                content_snippet=content_snip,
+                                submolt="general",
+                                username=discord_name,
+                                timestamp_iso=now_iso(),
+                            )
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+
             # Mark check
             feed_ids = [p.get("id") for p in (feed if isinstance(feed, list) else []) if p.get("id")]
             state.mark_check(feed_ids)

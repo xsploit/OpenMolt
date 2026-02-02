@@ -322,7 +322,7 @@ class OpenRouterAdapter(BaseAdapter):
             }
         } for t in tools]
 
-    def _response_to_items(self, response: Dict[str, Any]) -> List[Item]:
+    def _response_to_items_chat(self, response: Dict[str, Any]) -> List[Item]:
         items = []
         choice = response.get("choices", [{}])[0]
         message = choice.get("message", {})
@@ -350,25 +350,27 @@ class OpenRouterAdapter(BaseAdapter):
         return items
 
     def create_response(self, request: CreateResponseRequest) -> ResponseResource:
+        # Use OpenRouter /responses endpoint (normalized schema)
         if isinstance(request.input, str):
-            messages = [{"role": "user", "content": request.input}]
+            input_items = [{"type": "message", "role": "user", "content": request.input}]
         else:
-            messages = self._items_to_messages(request.input)
+            input_items = []
+            for m in self._items_to_messages(request.input):
+                input_items.append({"type": "message", "role": m.get("role"), "content": m.get("content")})
 
         payload = {
             "model": request.model or self.model,
-            "messages": messages,
-            "stream": False
+            "input": input_items,
         }
         if request.tools:
-            payload["tools"] = self._tools_to_chat_format(request.tools)
+            payload["tools"] = [{"type": "function", "function": t.parameters if hasattr(t, "parameters") else t.get("parameters"), "name": t.name if hasattr(t, "name") else t.get("name"), "description": t.description if hasattr(t, "description") else t.get("description")} for t in request.tools]
             payload["tool_choice"] = request.tool_choice or "auto"
         if request.temperature is not None:
             payload["temperature"] = request.temperature
         if request.max_output_tokens:
-            payload["max_tokens"] = request.max_output_tokens
+            payload["max_output_tokens"] = request.max_output_tokens
 
-        url = f"{self.base_url}/chat/completions"
+        url = f"{self.base_url}/responses"
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}"
@@ -379,30 +381,69 @@ class OpenRouterAdapter(BaseAdapter):
         resp.raise_for_status()
         data = resp.json()
 
+        def _response_to_items_resp(resp_json: Dict[str, Any]) -> List[Item]:
+            items_out = []
+            output = resp_json.get("output") or []
+            for o in output:
+                otype = o.get("type")
+                if otype == "message":
+                    content = o.get("content") or []
+                    text_parts = []
+                    for c in content:
+                        if c.get("type") in ("output_text", "text"):
+                            text_parts.append(c.get("text", ""))
+                    items_out.append({
+                        "type": "message",
+                        "id": o.get("id", f"msg_{uuid.uuid4().hex[:16]}"),
+                        "role": o.get("role", "assistant"),
+                        "status": o.get("status", "completed"),
+                        "content": [{"type": "output_text", "text": " ".join(text_parts)}],
+                    })
+                elif otype == "function_call":
+                    items_out.append({
+                        "type": "function_call",
+                        "id": o.get("id", f"fc_{uuid.uuid4().hex[:16]}"),
+                        "call_id": o.get("id"),
+                        "name": o.get("name"),
+                        "arguments": o.get("arguments"),
+                        "status": o.get("status", "completed"),
+                    })
+                elif otype == "function_call_output":
+                    items_out.append({
+                        "type": "function_call_output",
+                        "call_id": o.get("call_id"),
+                        "output": [{"type": "input_text", "text": o.get("content", "")}],
+                    })
+            if not items_out and resp_json.get("choices"):
+                items_out = self._response_to_items_chat(resp_json)
+            return items_out
+
         return ResponseResource(
             id=data.get("id", f"resp_{uuid.uuid4().hex[:16]}"),
             status="completed",
-            output=self._response_to_items(data),
+            output=_response_to_items_resp(data),
             model=request.model or self.model,
             usage=data.get("usage")
         )
 
     def create_response_stream(self, request: CreateResponseRequest) -> Generator[Dict[str, Any], None, None]:
         if isinstance(request.input, str):
-            messages = [{"role": "user", "content": request.input}]
+            input_items = [{"type": "message", "role": "user", "content": request.input}]
         else:
-            messages = self._items_to_messages(request.input)
+            input_items = []
+            for m in self._items_to_messages(request.input):
+                input_items.append({"type": "message", "role": m.get("role"), "content": m.get("content")})
 
         payload = {
             "model": request.model or self.model,
-            "messages": messages,
+            "input": input_items,
             "stream": True
         }
         if request.tools:
-            payload["tools"] = self._tools_to_chat_format(request.tools)
+            payload["tools"] = [{"type": "function", "function": t.parameters if hasattr(t, "parameters") else t.get("parameters"), "name": t.name if hasattr(t, "name") else t.get("name"), "description": t.description if hasattr(t, "description") else t.get("description")} for t in request.tools]
             payload["tool_choice"] = request.tool_choice or "auto"
 
-        url = f"{self.base_url}/chat/completions"
+        url = f"{self.base_url}/responses"
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}"
@@ -424,13 +465,16 @@ class OpenRouterAdapter(BaseAdapter):
                         break
                     try:
                         chunk = json.loads(data_str)
-                        delta = chunk.get("choices", [{}])[0].get("delta", {})
-                        if delta.get("content"):
-                            accumulated_text += delta["content"]
-                            yield {
-                                "type": "response.output_text.delta",
-                                "delta": delta["content"]
-                            }
+                        output_list = chunk.get("output") or []
+                        for o in output_list:
+                            if o.get("type") == "message":
+                                for c in o.get("content", []):
+                                    if c.get("type") in ("output_text", "text") and c.get("text"):
+                                        accumulated_text += c["text"]
+                                        yield {
+                                            "type": "response.output_text.delta",
+                                            "delta": c["text"]
+                                        }
                     except json.JSONDecodeError:
                         pass
 

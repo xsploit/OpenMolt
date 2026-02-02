@@ -202,8 +202,6 @@ You are [Name], a [description].
   └────────────┘        └──────────────┘
 ```
 
-</div>
-
 <div align="center">
 
 **Core Components:**<br>

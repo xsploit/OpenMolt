@@ -35,12 +35,27 @@ import queue
 
 # Prefer native Python TOON; fall back to Node CLI wrapper if available
 try:
-    from toon_format import encode as encode_to_toon  # type: ignore
+    from toon_format import encode as _encode_toon_py  # type: ignore
 except Exception:  # pragma: no cover
-    try:
-        from toon_cli import encode_to_toon  # optional TOON compression
-    except Exception:  # pragma: no cover
-        encode_to_toon = None
+    _encode_toon_py = None
+try:
+    from toon_cli import encode_to_toon as _encode_toon_cli  # optional TOON compression
+except Exception:  # pragma: no cover
+    _encode_toon_cli = None
+
+
+def encode_toon_safe(obj: Any) -> Optional[str]:
+    """Try python toon_format first, then Node CLI wrapper; return None on failure."""
+    for fn in (_encode_toon_py, _encode_toon_cli):
+        if not fn:
+            continue
+        try:
+            return fn(obj)
+        except NotImplementedError:
+            continue
+        except Exception:
+            continue
+    return None
 
 # Setup logging
 logging.basicConfig(
@@ -1548,13 +1563,10 @@ def main():
                 director_notes.clear()
 
             toon_cli_block = ""
-            if config.get("use_toon_cli") and encode_to_toon:
-                try:
-                    toon_encoded = encode_to_toon({"context": context, "toon_targets": toon_block})
-                    if toon_encoded:
-                        toon_cli_block = f"\n## TOON (node cli)\n```toon\n{toon_encoded[:4000]}\n```"
-                except Exception:
-                    toon_cli_block = ""
+            if config.get("use_toon_cli"):
+                toon_encoded = encode_toon_safe({"context": context, "toon_targets": toon_block})
+                if toon_encoded:
+                    toon_cli_block = f"\n## TOON\n```toon\n{toon_encoded[:4000]}\n```"
 
             prompt = f"""# HEARTBEAT - Time to check Moltbook!
 

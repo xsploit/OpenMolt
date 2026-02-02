@@ -60,6 +60,10 @@ import discord_webhook as dw
 import serper_client as serper
 from state import BotState
 import dashboard
+try:
+    from toon_cli import encode_to_toon  # optional TOON compression
+except Exception:  # pragma: no cover
+    encode_to_toon = None
 from discord_control_bot import start_discord_control
 
 CONFIG_PATH = Path("config.json")
@@ -1400,6 +1404,15 @@ def main():
                 )
                 director_notes.clear()
 
+            toon_cli_block = ""
+            if config.get("use_toon_cli") and encode_to_toon:
+                try:
+                    toon_encoded = encode_to_toon({"context": context, "toon_targets": toon_block})
+                    if toon_encoded:
+                        toon_cli_block = f"\n## TOON (node cli)\n```toon\n{toon_encoded[:4000]}\n```"
+                except Exception:
+                    toon_cli_block = ""
+
             prompt = f"""# HEARTBEAT - Time to check Moltbook!
 
 ## Current Context
@@ -1407,6 +1420,8 @@ def main():
 
 ## Targets + seeds (TOON, compact)
 {toon_block}
+
+{toon_cli_block}
 
 {director_block}
 

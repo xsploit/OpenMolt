@@ -651,6 +651,40 @@
         if (d.post_cooldown_remaining_sec != null) {
           document.getElementById('lastPostMeta').textContent = d.post_cooldown_remaining_sec > 0 ? (Math.ceil(d.post_cooldown_remaining_sec / 60) + 'm until next post') : 'Ready';
         }
+        // Feed snapshot (from dashboard endpoint)
+        if (Array.isArray(d.feed)) {
+          var feedEl = document.getElementById('feedContent');
+          if (feedEl) {
+            if (d.feed.length === 0) {
+              feedEl.innerHTML = '<div class="meta">No posts in feed.</div>';
+            } else {
+              feedEl.innerHTML = d.feed.slice(0, 10).map(function(p) {
+                var id = p.id || '';
+                var title = (p.title || '').slice(0, 80);
+                var author = (p.author && p.author.name) ? p.author.name : '?';
+                var submolt = (p.submolt && p.submolt.name) ? p.submolt.name : '?';
+                var link = id ? '<a href="' + POST_BASE + id + '" target="_blank" rel="noopener">' + escapeHtml(title || id.slice(0, 8)) + '</a>' : escapeHtml(title);
+                return '<div class="feed-item">' + link + ' <span class="meta">by ' + escapeHtml(author) + ' (' + escapeHtml(submolt) + ')</span></div>';
+              }).join('');
+            }
+          }
+        }
+        // Submolts snapshot
+        if (Array.isArray(d.submolts)) {
+          var subsEl = document.getElementById('submoltsContent');
+          if (subsEl) {
+            if (d.submolts.length === 0) {
+              subsEl.innerHTML = '<div class="meta">No submolts.</div>';
+            } else {
+              subsEl.innerHTML = d.submolts.slice(0, 50).map(function(s) {
+                var name = s.name || s.id || '?';
+                var display = s.display_name || name;
+                var desc = (s.description || '').slice(0, 100);
+                return '<div class="submolt-item"><strong>' + escapeHtml(display) + '</strong> <span class="meta">' + escapeHtml(name) + '</span>' + (desc ? '<br><span class="meta">' + escapeHtml(desc) + '</span>' : '') + '</div>';
+              }).join('');
+            }
+          }
+        }
         var errs = d.errors || [];
         var errBox = document.getElementById('errorsBox');
         if (errs.length) {

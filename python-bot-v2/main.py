@@ -1084,6 +1084,8 @@ def main():
     poll_minutes = int(config.get("poll_minutes", 3))
     log.info(f"Poll interval: {poll_minutes} minutes")
     dream_lock = threading.Lock()
+    # OpenRouter guard: max prompt size (chars) to avoid 400 payloads
+    max_prompt_chars = int(config.get("openrouter_prompt_max_chars", 12000))
 
     # Check skill version
     try:
@@ -1181,7 +1183,9 @@ def main():
             # Create agent
             if config.get("brain_use_openrouter"):
                 log.info(f"Brain: OpenRouter ({config.get('openrouter_model')})")
-                agent = pool.get_brain(system_prompt, on_iteration, on_tool_call, on_response)
+                # Trim prompt if too long to prevent 400s
+                trimmed_prompt = system_prompt[:max_prompt_chars]
+                agent = pool.get_brain(trimmed_prompt, on_iteration, on_tool_call, on_response)
             else:
                 log.info(f"Brain: Ollama ({config.get('ollama_model')})")
                 agent = pool.get_worker(system_prompt, on_iteration, on_tool_call, on_response)
@@ -1218,7 +1222,20 @@ What will you do?
 
             # Run agent
             log.info("Agent thinking...")
-            response = agent.think(prompt)
+            try:
+                response = agent.think(prompt)
+            except requests.HTTPError as e:
+                status = getattr(e.response, "status_code", None)
+                if status == 400 and config.get("brain_use_openrouter"):
+                    log.error("OpenRouter 400: likely prompt too large or bad request. Trimming and retrying once.")
+                    shorter_prompt = prompt[:max_prompt_chars]
+                    try:
+                        response = agent.think(shorter_prompt)
+                    except Exception as e2:
+                        log.error(f"Retry failed: {e2}")
+                        raise
+                else:
+                    raise
             
             log.info(f"Agent: {response[:300]}..." if len(response) > 300 else f"Agent: {response}")
 

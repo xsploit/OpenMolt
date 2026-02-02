@@ -195,6 +195,8 @@ def _api_dashboard_json():
     state_data = _api_state()
     status_data = _api_status(key) if key else {}
     dm_check = _api_dm_check(key) if key else {}
+    feed = _api_feed(key, 10) if key else {}
+    submolts = _api_submolts(key) if key else {}
     last_action = None
     actions_history = []
     activity = state_data.get("activity_log") or []
@@ -215,6 +217,8 @@ def _api_dashboard_json():
         "post_cooldown_remaining_sec": state_data.get("post_cooldown_remaining_sec"),
         "comment_cooldown_remaining_sec": state_data.get("comment_cooldown_remaining_sec"),
         "comment_daily_remaining": state_data.get("comment_daily_remaining"),
+        "feed": feed.get("posts") if isinstance(feed, dict) else [],
+        "submolts": submolts.get("submolts") if isinstance(submolts, dict) else submolts,
     }
 
 

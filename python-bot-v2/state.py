@@ -73,7 +73,7 @@ class BotState:
             log.warning(f"Failed to load state: {e}")
             return self._default_state()
 
-    def _default_state(self) -> Dict[str, Any]:
+def _default_state(self) -> Dict[str, Any]:
         return {
             "last_check": None,
             "last_seen_post_ids": [],
@@ -82,6 +82,7 @@ class BotState:
             "our_post_ids": [],
             "our_comment_ids": [],
             "seen_comment_ids": [],
+            "recent_commented_posts": [],
             "dm_auto_replied": {},
             "submolts_cache": None,
             "submolts_cached_at": None,
@@ -137,6 +138,18 @@ class BotState:
         """When we last polled DMs/replies."""
         return self.data.get("last_notify_check")
 
+    # non-persisted per-loop guard
+    def reset_loop_comment_guard(self):
+        self._loop_comment_guard = set()
+
+    def mark_loop_comment(self, post_id: str):
+        if not hasattr(self, "_loop_comment_guard"):
+            self._loop_comment_guard = set()
+        self._loop_comment_guard.add(post_id)
+
+    def loop_comment_seen(self, post_id: str) -> bool:
+        return hasattr(self, "_loop_comment_guard") and post_id in self._loop_comment_guard
+
     # ========== Cooldown Checks ==========
 
     def can_post(self) -> bool:
@@ -168,6 +181,24 @@ class BotState:
             return 0
         remaining = COMMENT_COOLDOWN_SEC - (time.time() - last)
         return max(0, int(remaining))
+
+    def _prune_recent_comments(self, window_hours: int = 2):
+        rc = self.data.get("recent_commented_posts") or []
+        cutoff = time.time() - window_hours * 3600
+        pruned = []
+        for entry in rc:
+            ts = _parse_ts(entry.get("ts"))
+            if ts and ts >= cutoff:
+                pruned.append(entry)
+        self.data["recent_commented_posts"] = pruned[-100:]
+
+    def can_comment_post_recent(self, post_id: str, window_hours: int = 2) -> bool:
+        """Prevent duplicate comments on the same post within a time window."""
+        self._prune_recent_comments(window_hours)
+        for entry in self.data.get("recent_commented_posts") or []:
+            if entry.get("post_id") == post_id:
+                return False
+        return True
 
     def _reset_daily_comment_if_new_day(self):
         """Reset daily comment counter if day changed."""
@@ -213,6 +244,10 @@ class BotState:
         self.data["our_comment_ids"] = ids[-50:]
         # Keep activity/dream counters and persist immediately
         self._log_activity("comment", post_id=post_id, comment_id=comment_id)
+        # Track recent commented posts with timestamp to avoid duplicates
+        rc = self.data.get("recent_commented_posts") or []
+        rc.append({"post_id": post_id, "ts": _now_iso()})
+        self.data["recent_commented_posts"] = rc[-100:]
         self.save()
 
     def add_seen_comment(self, comment_id: str, post_id: Optional[str] = None) -> None:

@@ -491,6 +491,10 @@ def register_all_tools(agent: Agent, api_key: str, state: BotState, config: dict
     def create_comment_safe(post_id, content, parent_id=None):
         if state.is_our_post(post_id):
             return {"error": "Cannot comment on your own post!"}
+        if state.loop_comment_seen(post_id):
+            return {"error": "Already commented on this post this cycle."}
+        if not state.can_comment_post_recent(post_id, window_hours=2):
+            return {"error": "Recently commented on this post. Skipping to avoid duplicates."}
         if not state.can_comment():
             return {"error": f"Comment cooldown. Wait {state.comment_cooldown_remaining()} seconds."}
         if not state.can_comment_today():
@@ -501,6 +505,7 @@ def register_all_tools(agent: Agent, api_key: str, state: BotState, config: dict
         comment_id = (result.get("comment") or {}).get("id") or result.get("id")
         if comment_id:
             state.mark_comment(post_id, comment_id)
+            state.mark_loop_comment(post_id)
         return result
 
     agent.register_tool(
@@ -1319,6 +1324,7 @@ def main():
     while True:
         try:
             cycle_count += 1
+            state.reset_loop_comment_guard()
             log.info("-" * 40)
             log.info(f"HEARTBEAT #{cycle_count}: Checking Moltbook...")
 

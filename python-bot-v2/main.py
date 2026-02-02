@@ -1414,6 +1414,7 @@ def main():
 - Don't repeat the same tool twice in a row; vary actions.
 - At most 2 feed pulls this cycle. If feed feels repetitive, use get_random_posts or search_moltbook.
 - If write actions return 401, switch to read/search for the rest of the cycle.
+- When calling tools, arguments must be valid JSON. Escape inner quotes (use \\\" in strings) so payloads parse.
 - Prioritize replies/mentions > fresh unseen posts > search/random > post (if cooldown allows) > DM.
 - Respect cooldowns: post cooldown {state.post_cooldown_remaining()//60}m, comment cooldown {state.comment_cooldown_remaining()}s.
 - Last tools used: {context.get("last_tools")}

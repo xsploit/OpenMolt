@@ -308,7 +308,7 @@ def register_all_tools(agent: Agent, api_key: str, state: BotState, config: dict
     """Register EVERY Moltbook API endpoint + web search + memory as tools."""
     
     serper_key = config.get("serper_api_key") or None
-    # Track whether we've already surfaced the Moltbook 401 write bug to avoid noisy repeats
+    # Track whether we've already surfaced the Moltbook 401 write bug to avoid noisy repeats (legacy)
     write_401_noted = {"seen": False}
     
     # ========== SERPER WEB SEARCH (if available) ==========
@@ -470,15 +470,6 @@ def register_all_tools(agent: Agent, api_key: str, state: BotState, config: dict
             return {"error": "Daily comment limit reached (50 per day)."}
         log.debug(f"create_comment using api_key: {api_key[:20]}...")  # Debug
         result = moltbook.add_comment(api_key, post_id, content, parent_id)
-        if result.get("error") == "unauthorized":
-            if not write_401_noted["seen"]:
-                write_401_noted["seen"] = True
-                try:
-                    import dashboard
-                    dashboard.log_error("Moltbook 401 on comment/upvote; treating as server-side bug and skipping writes this cycle.")
-                except Exception:
-                    pass
-            return {"error": "Moltbook returned 401 on comment; skipping further comment attempts this run."}
         comment_id = (result.get("comment") or {}).get("id") or result.get("id")
         if comment_id:
             state.mark_comment(post_id, comment_id)
@@ -519,15 +510,6 @@ def register_all_tools(agent: Agent, api_key: str, state: BotState, config: dict
             return {"error": "Cannot upvote your own post!"}
         state.mark_upvote(post_id)
         result = moltbook.upvote_post(api_key, post_id)
-        if result.get("error") == "unauthorized":
-            if not write_401_noted["seen"]:
-                write_401_noted["seen"] = True
-                try:
-                    import dashboard
-                    dashboard.log_error("Moltbook 401 on comment/upvote; treating as server-side bug and skipping writes this cycle.")
-                except Exception:
-                    pass
-            return {"error": "Moltbook returned 401 on upvote; skipping further upvote attempts this run."}
         return result
 
     agent.register_tool(
@@ -1490,7 +1472,6 @@ def main():
 ## Action rules (follow these)
 - Don't repeat the same tool twice in a row; vary actions.
 - At most 2 feed pulls this cycle. If feed feels repetitive, use get_random_posts or search_moltbook.
-- If write actions return 401, switch to read/search for the rest of the cycle.
 - When calling tools, arguments must be valid JSON. Escape inner quotes (use \\\" in strings) so payloads parse.
 - Prioritize replies/mentions > fresh unseen posts > search/random > post (if cooldown allows) > DM.
 - Respect cooldowns: post cooldown {state.post_cooldown_remaining()//60}m, comment cooldown {state.comment_cooldown_remaining()}s.

@@ -301,6 +301,8 @@ def register_all_tools(agent: Agent, api_key: str, state: BotState, config: dict
     """Register EVERY Moltbook API endpoint + web search + memory as tools."""
     
     serper_key = config.get("serper_api_key") or None
+    # Track whether we've already surfaced the Moltbook 401 write bug to avoid noisy repeats
+    write_401_noted = {"seen": False}
     
     # ========== WEB SEARCH (if available) ==========
     if serper_key:
@@ -372,6 +374,19 @@ def register_all_tools(agent: Agent, api_key: str, state: BotState, config: dict
             "required": ["submolt", "title", "content"]
         },
         handler=create_post_safe
+    )
+
+    agent.register_tool(
+        name="get_random_posts",
+        description="Fetch a randomized set of posts (server-side shuffle).",
+        parameters={
+            "type": "object",
+            "properties": {
+                "limit": {"type": "integer", "description": "Max posts to return (default 15)"},
+                "shuffle": {"type": "integer", "description": "Optional shuffle seed (e.g., current epoch millis)"}
+            }
+        },
+        handler=lambda limit=15, shuffle=None: moltbook.get_random_posts(api_key, limit, shuffle)
     )
 
     agent.register_tool(
@@ -448,6 +463,15 @@ def register_all_tools(agent: Agent, api_key: str, state: BotState, config: dict
             return {"error": "Daily comment limit reached (50 per day)."}
         log.debug(f"create_comment using api_key: {api_key[:20]}...")  # Debug
         result = moltbook.add_comment(api_key, post_id, content, parent_id)
+        if result.get("error") == "unauthorized":
+            if not write_401_noted["seen"]:
+                write_401_noted["seen"] = True
+                try:
+                    import dashboard
+                    dashboard.log_error("Moltbook 401 on comment/upvote; treating as server-side bug and skipping writes this cycle.")
+                except Exception:
+                    pass
+            return {"error": "Moltbook returned 401 on comment; skipping further comment attempts this run."}
         comment_id = (result.get("comment") or {}).get("id") or result.get("id")
         if comment_id:
             state.mark_comment(post_id, comment_id)
@@ -487,7 +511,17 @@ def register_all_tools(agent: Agent, api_key: str, state: BotState, config: dict
         if state.is_our_post(post_id):
             return {"error": "Cannot upvote your own post!"}
         state.mark_upvote(post_id)
-        return moltbook.upvote_post(api_key, post_id)
+        result = moltbook.upvote_post(api_key, post_id)
+        if result.get("error") == "unauthorized":
+            if not write_401_noted["seen"]:
+                write_401_noted["seen"] = True
+                try:
+                    import dashboard
+                    dashboard.log_error("Moltbook 401 on comment/upvote; treating as server-side bug and skipping writes this cycle.")
+                except Exception:
+                    pass
+            return {"error": "Moltbook returned 401 on upvote; skipping further upvote attempts this run."}
+        return result
 
     agent.register_tool(
         name="upvote_post",
@@ -934,7 +968,7 @@ def _cache_submolts(api_key: str, state: BotState, max_age_hours: int = 6) -> An
 
 
 def gather_context(api_key: str, state: BotState) -> dict:
-    """Gather current Moltbook context with richer signals (hot/new, submolts, replies)."""
+    """Gather current Moltbook context with richer signals (hot/new, submolts, replies), de-duped and fresh."""
     context = {}
 
     try:
@@ -964,15 +998,55 @@ def gather_context(api_key: str, state: BotState) -> dict:
     except Exception:
         feed_new = []
 
-    # Filter out own posts
+    # Filter out own, seen, and stale posts
     own_ids = set(state.our_post_ids)
+    seen_ids = state.last_seen_post_ids
+
+    from datetime import datetime, timedelta
+    recency_cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+
+    def _is_recent(p):
+        ts = p.get("created_at")
+        try:
+            dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+            return dt >= recency_cutoff
+        except Exception:
+            return True
+
     def _filter(posts):
-        return [p for p in posts if p.get("id") not in own_ids]
+        out = []
+        for p in posts or []:
+            pid = p.get("id")
+            if not pid or pid in own_ids or pid in seen_ids:
+                continue
+            if not _is_recent(p):
+                continue
+            out.append(p)
+        return out
+
     hot_posts = _filter(hot_posts) if isinstance(hot_posts, list) else []
     feed_new = _filter(feed_new) if isinstance(feed_new, list) else []
 
+    # Merge candidate list preferring new over hot, limited to 15
+    merged_candidates = []
+    for p in feed_new + hot_posts:
+        pid = p.get("id")
+        if pid and pid not in {c.get("id") for c in merged_candidates}:
+            merged_candidates.append(p)
+        if len(merged_candidates) >= 15:
+            break
+
     context["feed_hot"] = hot_posts
     context["feed_new"] = feed_new
+    context["feed_candidates"] = merged_candidates
+
+    # Add one random batch for more variety (no dedupe with seen_ids since API already randomizes)
+    try:
+        rand_batch = moltbook.get_random_posts(api_key, limit=10)
+        rand_posts = rand_batch.get("posts", rand_batch) if isinstance(rand_batch, dict) else rand_batch
+        context["feed_random"] = rand_posts or []
+    except Exception:
+        context["feed_random"] = []
 
     # Submolts (cached)
     context["submolts"] = _cache_submolts(api_key, state)
@@ -983,6 +1057,15 @@ def gather_context(api_key: str, state: BotState) -> dict:
     thread_details = _enrich_threads(api_key, target_ids, max_posts=7)
     context["thread_details"] = thread_details
     context["replies_to_you"] = _replies_to_you(thread_details, state)
+
+    # Suggest semantic search seeds to encourage variety
+    context["search_seeds"] = [
+        "agents discussing memory strategies",
+        "welcome posts from new moltys",
+        "debugging or tool-use questions",
+        "ai safety or governance debates",
+        "creative uses of embeddings",
+    ]
 
     # State info
     context["state"] = {
@@ -1025,6 +1108,13 @@ def main():
         return
 
     serper_key = config.get("serper_api_key")
+
+    # Ensure dashboard file exists early
+    try:
+        import dashboard
+        dashboard.ensure_exists(config.get("persona", ""))
+    except Exception:
+        pass
     
     # Discord webhook
     discord_url = config.get("discord_webhook_url")
@@ -1134,6 +1224,17 @@ def main():
             
             log.info(f"DMs: {pending} pending, {unread} unread | Feed: {feed_count} posts")
             log.info(f"Cooldowns: can_post={state.can_post()}, can_comment={state.can_comment()}")
+            try:
+                import dashboard
+                dashboard.update_cycle(
+                    agent_name=profile_name,
+                    status=f"pending={pending}, unread={unread}, feed={feed_count}",
+                    dm_inbox=dm_status,
+                    last_post_at=state.data.get("last_post_at"),
+                    last_comment_at=state.data.get("last_comment_at"),
+                )
+            except Exception:
+                pass
 
             # Discord notifications
             if discord_url:
@@ -1194,10 +1295,30 @@ def main():
             register_all_tools(agent, api_key, state, config, memory)
 
             # Build prompt
+            fresh_candidates = context.get("feed_candidates") or []
+            fresh_list = "\n".join(
+                [f"- {p.get('title','')[:80]} (m/{(p.get('submolt') or {}).get('name','?')})"
+                 for p in fresh_candidates[:6]]
+            ) or "- none in the last 24h"
+            random_list = "\n".join(
+                [f"- {p.get('title','')[:80]} (m/{(p.get('submolt') or {}).get('name','?')})"
+                 for p in (context.get('feed_random') or [])[:4]]
+            ) or "- random batch unavailable"
+            search_seeds = "\n".join([f"- {q}" for q in (context.get("search_seeds") or [])]) or "- memory, safety, tooling, welcome posts"
+
             prompt = f"""# HEARTBEAT - Time to check Moltbook!
 
 ## Current Context
 {json.dumps(context, indent=2, default=str)[:5000]}
+
+## Fresh targets (unseen, <24h)
+{fresh_list}
+
+## Shuffle batch (server random)
+{random_list}
+
+## Search ideas (try semantic search if feed is sparse/repetitive)
+{search_seeds}
 
 ## What You Can Do
 

@@ -262,6 +262,102 @@ class OllamaAdapter(BaseAdapter):
 
 
 class OpenRouterAdapter(BaseAdapter):
+    def _normalize_item(self, item: Any) -> Dict[str, Any]:
+        """Normalize Open Responses items to OpenRouter /responses schema."""
+        d = item.to_dict() if hasattr(item, "to_dict") else dict(item)
+        otype = d.get("type")
+
+        if otype == "function_call":
+            # Ensure arguments is a string
+            args = d.get("arguments")
+            if not isinstance(args, str):
+                try:
+                    d["arguments"] = json.dumps(args)
+                except Exception:
+                    d["arguments"] = str(args)
+            # Ensure required call_id
+            if not d.get("call_id"):
+                d["call_id"] = d.get("id") or f"call_{uuid.uuid4().hex[:8]}"
+
+        elif otype == "function_call_output":
+            # OpenRouter expects output as string, not array
+            out = d.get("output")
+            if isinstance(out, list):
+                texts = []
+                for o in out:
+                    if isinstance(o, dict):
+                        if o.get("type") == "input_text":
+                            texts.append(o.get("text", ""))
+                        elif "text" in o:
+                            texts.append(o.get("text", ""))
+                    else:
+                        texts.append(str(o))
+                d["output"] = "\n".join([t for t in texts if t])
+            elif out is None:
+                d["output"] = ""
+
+        elif otype == "message":
+            # Ensure content array uses dicts with type/text
+            content = d.get("content") or []
+            norm_content = []
+            for c in content:
+                if hasattr(c, "to_dict"):
+                    c = c.to_dict()
+                if isinstance(c, dict):
+                    norm_content.append(c)
+                else:
+                    norm_content.append({"type": "input_text", "text": str(c)})
+            d["content"] = norm_content
+
+        return d
+
+    def _items_to_plaintext(self, items: List[Any]) -> str:
+        """Flatten Open Responses items to a single prompt string (fallback for providers that only accept string input)."""
+        parts = []
+        for it in items:
+            d = it.to_dict() if hasattr(it, "to_dict") else dict(it)
+            t = d.get("type")
+            role = d.get("role", "")
+            if t == "message":
+                texts = []
+                for c in d.get("content", []) or []:
+                    if hasattr(c, "to_dict"):
+                        c = c.to_dict()
+                    if isinstance(c, dict):
+                        texts.append(c.get("text", ""))
+                    else:
+                        texts.append(str(c))
+                parts.append(f"[{role}] " + " ".join(texts))
+            elif t == "function_call":
+                parts.append(f"[tool-call {d.get('name')}] args={d.get('arguments')}")
+            elif t == "function_call_output":
+                out = d.get("output")
+                if isinstance(out, list):
+                    out_text = " ".join([o.get("text", "") if isinstance(o, dict) else str(o) for o in out])
+                else:
+                    out_text = str(out)
+                parts.append(f"[tool-result {d.get('call_id')}] {out_text}")
+            elif t == "reasoning":
+                parts.append("[reasoning]")
+            else:
+                parts.append(str(d))
+        return "\n".join(parts)
+    def _tool_entry(self, t):
+        """Convert a FunctionTool dataclass or plain dict to /responses tool shape."""
+        name = t.name if hasattr(t, "name") else t.get("name")
+        desc = t.description if hasattr(t, "description") else t.get("description")
+        params = t.parameters if hasattr(t, "parameters") else t.get("parameters")
+        strict = t.strict if hasattr(t, "strict") else t.get("strict")
+        entry = {
+            "type": "function",
+            "name": name,
+            "description": desc,
+            "parameters": params,
+        }
+        # Only include strict when present to avoid None validation issues
+        if strict is not None:
+            entry["strict"] = strict
+        return entry
     """
     Adapter for OpenRouter's API.
     Same translation logic, different auth and endpoint.
@@ -352,24 +448,17 @@ class OpenRouterAdapter(BaseAdapter):
     def create_response(self, request: CreateResponseRequest) -> ResponseResource:
         # Use OpenRouter /responses endpoint (normalized schema)
         if isinstance(request.input, str):
-            input_items = [{"type": "message", "role": "user", "content": request.input}]
+            input_items = request.input  # Spec allows raw string
         else:
-            input_items = []
-            for m in self._items_to_messages(request.input):
-                input_items.append({"type": "message", "role": m.get("role"), "content": m.get("content")})
+            # OpenRouter currently prefers string input; flatten items to text.
+            input_items = self._items_to_plaintext(request.input)
 
         payload = {
             "model": request.model or self.model,
             "input": input_items,
         }
-        def _tool_entry(t):
-            name = t.name if hasattr(t, "name") else t.get("name")
-            desc = t.description if hasattr(t, "description") else t.get("description")
-            params = t.parameters if hasattr(t, "parameters") else t.get("parameters")
-            return {"type": "function", "function": {"name": name, "description": desc, "parameters": params}}
-
         if request.tools:
-            payload["tools"] = [_tool_entry(t) for t in request.tools]
+            payload["tools"] = [self._tool_entry(t) for t in request.tools]
             payload["tool_choice"] = request.tool_choice or "auto"
         if request.temperature is not None:
             payload["temperature"] = request.temperature
@@ -388,6 +477,7 @@ class OpenRouterAdapter(BaseAdapter):
             resp.raise_for_status()
         except requests.HTTPError as e:
             log.error(f"OpenRouter 400/err body: {resp.text[:500]}")
+            log.error(f"Payload sent: {json.dumps(payload)[:500]}")
             raise
         data = resp.json()
 
@@ -438,11 +528,9 @@ class OpenRouterAdapter(BaseAdapter):
 
     def create_response_stream(self, request: CreateResponseRequest) -> Generator[Dict[str, Any], None, None]:
         if isinstance(request.input, str):
-            input_items = [{"type": "message", "role": "user", "content": request.input}]
+            input_items = request.input
         else:
-            input_items = []
-            for m in self._items_to_messages(request.input):
-                input_items.append({"type": "message", "role": m.get("role"), "content": m.get("content")})
+            input_items = self._items_to_plaintext(request.input)
 
         payload = {
             "model": request.model or self.model,
@@ -450,7 +538,7 @@ class OpenRouterAdapter(BaseAdapter):
             "stream": True
         }
         if request.tools:
-            payload["tools"] = [_tool_entry(t) for t in request.tools]
+            payload["tools"] = [self._tool_entry(t) for t in request.tools]
             payload["tool_choice"] = request.tool_choice or "auto"
 
         url = f"{self.base_url}/responses"

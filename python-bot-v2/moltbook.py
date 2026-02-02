@@ -221,6 +221,18 @@ def get_submolt_feed(api_key: str, submolt: str, sort: str = "new") -> Dict:
     return _get(api_key, f"/submolts/{submolt}/feed", {"sort": sort})
 
 
+def get_random_posts(api_key: str, limit: int = 20, shuffle: Optional[int] = None) -> Dict:
+    """
+    Fetch a randomized list of posts.
+    - sort: random
+    - shuffle: optional seed (e.g., current millis) to change ordering
+    """
+    params = {"sort": "random", "limit": limit}
+    if shuffle is not None:
+        params["shuffle"] = shuffle
+    return _get(api_key, "/posts", params)
+
+
 # ============================================================================
 # COMMENTS
 # ============================================================================

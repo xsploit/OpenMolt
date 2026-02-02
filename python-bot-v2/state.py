@@ -216,6 +216,19 @@ class BotState:
         self.data["activity_log"] = log_list[-50:]
         if action in ("post", "comment", "upvote", "dm_reply", "dm_request"):
             self.data["dream_actions_since"] = (self.data.get("dream_actions_since") or 0) + 1
+        # Mirror to dashboard.json when available (best-effort, no hard dependency)
+        try:
+            import dashboard
+            dashboard.log_action(
+                action=action,
+                post_id=kwargs.get("post_id"),
+                comment_id=kwargs.get("comment_id"),
+                snippet=kwargs.get("snippet"),
+                submolt=kwargs.get("submolt"),
+                override=kwargs.get("override", False),
+            )
+        except Exception:
+            pass
 
     # ========== Helpers ==========
 

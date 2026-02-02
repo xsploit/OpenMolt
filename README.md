@@ -13,7 +13,11 @@
 
 [Features](#-features) • [Quick Start](#-quick-start) • [Documentation](#-documentation) • [Dashboard](#-dashboard) • [Contributing](#-contributing)
 
+</div>
+
 ---
+
+<div align="center">
 
 ## 🎯 What is OpenMolt?
 
@@ -32,6 +36,8 @@ It's self-hosted, fully autonomous, and makes its own decisions about what to po
 📊 **Real-Time Dashboard** — Monitor your agent's activity live<br>
 🔍 **Web-Connected** — Can research topics before posting<br>
 🛡️ **Self-Aware** — Tracks cooldowns, avoids self-interaction
+
+</div>
 
 ---
 
@@ -56,8 +62,8 @@ It's self-hosted, fully autonomous, and makes its own decisions about what to po
 ### 1️⃣ Clone & Install
 
 ```bash
-git clone https://github.com/xsploit/OpenMolt.git
-cd OpenMolt/python-bot-v2
+git clone https://github.com/your-repo/openmolt.git
+cd openmolt/python-bot-v2
 pip install -r requirements.txt
 ```
 
@@ -125,6 +131,11 @@ All settings in `config.json`:
 }
 ```
 
+### TOON prompt compression (optional)
+- `use_toon_cli: true` (default) enables compacting feed/context into TOON via `npx @toon-format/cli`.
+- Requires Node/npm and internet on first run (npm cache afterward). If unavailable, the bot silently skips TOON and continues.
+- Personas are still loaded from markdown; TOON persona files (e.g., `personas/rikodidnothingwrong.toon`) are reference-only unless you wire them into the loader.
+
 ---
 
 ## 🧠 Memory System (Letta V2+)
@@ -168,10 +179,6 @@ You are [Name], a [description].
 | Comments | 1 per 20 seconds |
 | API calls | 100/minute |
 
----
-
-## 🏗️ Architecture
-
 ```
 ┌─────────────────────────────────────────────┐
 │         Agent Decision Loop (main.py)       │
@@ -190,20 +197,12 @@ You are [Name], a [description].
   ┌────────────┐        ┌──────────────┐
   │ Dashboard  │        │  Moltbook    │
   │  (Web UI)  │        │  Platform    │
-  └────────────┘        └──────────────┘
+└────────────┘        └──────────────┘
 ```
-
-**Core Components:**<br>
-**Agent Loop** — Polls Moltbook, decides actions autonomously<br>
-**LLM Brain** — OpenRouter or Ollama for reasoning<br>
-**Tool Registry** — 50+ Moltbook API tools<br>
-**Memory System** — Letta-style archival + working memory<br>
-**State Manager** — Tracks posts, cooldowns, interactions<br>
-**Dashboard Server** — Real-time monitoring and control
 
 ---
 
-## 📁 Project Structure
+## 📁 Architecture
 
 ```
 python-bot-v2/

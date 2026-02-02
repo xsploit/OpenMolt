@@ -73,7 +73,7 @@ class BotState:
             log.warning(f"Failed to load state: {e}")
             return self._default_state()
 
-def _default_state(self) -> Dict[str, Any]:
+    def _default_state(self) -> Dict[str, Any]:
         return {
             "last_check": None,
             "last_seen_post_ids": [],

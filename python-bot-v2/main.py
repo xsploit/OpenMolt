@@ -1360,6 +1360,68 @@ def main():
                     state.record_tool(name)
                 except Exception:
                     pass
+                # Dashboard + webhook side-effects for Moltbook actions
+                try:
+                    from dashboard import log_action, update_cycle
+                    ts_now = now_iso()
+                    if isinstance(result, dict):
+                        if name == "create_post":
+                            post_id = (result.get("post") or {}).get("id") or result.get("id")
+                            if post_id:
+                                title_snip = (args.get("title") or "")[:120]
+                                submolt = args.get("submolt")
+                                log_action("post", post_id=post_id, snippet=title_snip, submolt=submolt)
+                                state.data["last_post_at"] = ts_now
+                                update_cycle(
+                                    agent_name=context.get("my_profile", {}).get("name", "Unknown"),
+                                    status=f"pending={context.get('dm_status',{}).get('requests',{}).get('count',0)}, unread={context.get('dm_status',{}).get('messages',{}).get('total_unread',0)}, feed={len(context.get('feed',[]) or [])}",
+                                    dm_inbox=context.get("dm_status"),
+                                    last_post_at=ts_now,
+                                    last_comment_at=state.data.get("last_comment_at"),
+                                )
+                                if discord_url:
+                                    try:
+                                        dw.notify_post_created(
+                                            discord_url,
+                                            title=title_snip,
+                                            post_id=post_id,
+                                            content_snippet=(args.get("content") or "")[:200],
+                                            submolt=submolt or "general",
+                                            username=discord_name,
+                                            timestamp_iso=ts_now,
+                                        )
+                                    except Exception:
+                                        pass
+                        elif name == "create_comment":
+                            comment_id = (result.get("comment") or {}).get("id") or result.get("id")
+                            post_id = args.get("post_id")
+                            if comment_id:
+                                content_snip = (args.get("content") or "")[:200]
+                                log_action("comment", comment_id=comment_id, post_id=post_id, snippet=content_snip)
+                                state.data["last_comment_at"] = ts_now
+                                update_cycle(
+                                    agent_name=context.get("my_profile", {}).get("name", "Unknown"),
+                                    status=f"pending={context.get('dm_status',{}).get('requests',{}).get('count',0)}, unread={context.get('dm_status',{}).get('messages',{}).get('total_unread',0)}, feed={len(context.get('feed',[]) or [])}",
+                                    dm_inbox=context.get("dm_status"),
+                                    last_post_at=state.data.get("last_post_at"),
+                                    last_comment_at=ts_now,
+                                )
+                                if discord_url:
+                                    try:
+                                        dw.notify_comment_created(
+                                            discord_url,
+                                            post_id=post_id or "",
+                                            comment_snippet=content_snip,
+                                            username=discord_name,
+                                            timestamp_iso=ts_now,
+                                        )
+                                    except Exception:
+                                        pass
+                        elif name in ("upvote_post", "downvote_post"):
+                            log_action("upvote", post_id=args.get("post_id"))
+                except Exception:
+                    pass
+
                 if discord_url:
                     try:
                         dw.notify_tool_card(discord_url, name, args, result, username=discord_name, timestamp_iso=now_iso())

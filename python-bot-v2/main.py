@@ -31,6 +31,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 import requests
+import queue
 
 # Setup logging
 logging.basicConfig(
@@ -58,6 +59,8 @@ import moltbook
 import discord_webhook as dw
 import serper_client as serper
 from state import BotState
+import dashboard
+from discord_control_bot import start_discord_control
 
 CONFIG_PATH = Path("config.json")
 PERSONA_DIR = Path("personas")
@@ -1148,6 +1151,10 @@ def main():
 
     serper_key = config.get("serper_api_key")
 
+    # Optional control queue and director notes (for Discord control bot)
+    control_queue = queue.Queue()
+    director_notes: List[str] = []
+
     # Ensure dashboard file exists early
     try:
         import dashboard
@@ -1180,6 +1187,22 @@ def main():
     # Load state
     state = BotState()
     
+    # Optional Discord control bot (owner + channel restricted)
+    dc_token = config.get("discord_control_bot_token")
+    dc_chan = config.get("discord_control_channel_id")
+    dc_owner = config.get("discord_control_owner_id")
+    if dc_token and dc_chan and dc_owner:
+        try:
+            start_discord_control(
+                token=dc_token,
+                channel_id=int(dc_chan),
+                owner_id=int(dc_owner),
+                enqueue=control_queue.put
+            )
+            log.info("Discord control bot started (owner + channel restricted).")
+        except Exception as e:
+            log.warning(f"Discord control bot failed to start: {e}")
+
     # Load memory (Letta-style)
     from memory import AgentMemory
     from dream import run_dream_cycle
@@ -1230,6 +1253,28 @@ def main():
             cycle_count += 1
             log.info("-" * 40)
             log.info(f"HEARTBEAT #{cycle_count}: Checking Moltbook...")
+
+            # Process control queue
+            force_run = False
+            while not control_queue.empty():
+                msg = control_queue.get()
+                mtype = msg.get("type")
+                if mtype == "pause":
+                    dashboard.set_paused(True)
+                    dashboard.log_action("pause", override=True)
+                elif mtype == "resume":
+                    dashboard.set_paused(False)
+                    dashboard.log_action("resume", override=True)
+                elif mtype == "director_note":
+                    text = msg.get("text", "")
+                    if text:
+                        director_notes.append(text)
+                        dashboard.log_action("director_note", snippet=text[:120], override=True)
+                elif mtype == "run_once":
+                    force_run = True
+                    dashboard.log_action("run_once", override=True)
+                elif mtype == "status_request":
+                    dashboard.log_action("status_request", override=True)
 
             ok, auth_msg = check_auth(api_key)
             if not ok:
@@ -1348,6 +1393,13 @@ def main():
                 search_seeds=context.get("search_seeds") or [],
             )
 
+            director_block = ""
+            if director_notes:
+                director_block = "\n## Director notes (highest priority, one-off)\n" + "\n".join(
+                    [f"- {n[:200]}" for n in director_notes[:5]]
+                )
+                director_notes.clear()
+
             prompt = f"""# HEARTBEAT - Time to check Moltbook!
 
 ## Current Context
@@ -1355,6 +1407,8 @@ def main():
 
 ## Targets + seeds (TOON, compact)
 {toon_block}
+
+{director_block}
 
 ## Action rules (follow these)
 - Don't repeat the same tool twice in a row; vary actions.
@@ -1456,8 +1510,10 @@ What will you do?
                 log.info("--once flag: exiting after single cycle")
                 break
 
-            log.info(f"Sleeping {poll_minutes} minutes...")
-            time.sleep(60 * poll_minutes)
+            sleep_seconds = 0 if force_run else 60 * poll_minutes
+            if sleep_seconds > 0:
+                log.info(f"Sleeping {poll_minutes} minutes...")
+                time.sleep(sleep_seconds)
 
         except KeyboardInterrupt:
             log.info("Stopping bot...")

@@ -87,6 +87,7 @@ class BotState:
             "comment_count_today": 0,
             "dream_actions_since": 0,
             "last_dream_at": None,
+            "last_tools": [],
         }
 
     def save(self) -> None:
@@ -117,6 +118,11 @@ class BotState:
     @property
     def activity_log(self) -> List[Dict]:
         return self.data.get("activity_log") or []
+
+    @property
+    def last_tools(self) -> List[str]:
+        """Most recent tools invoked (read + write)."""
+        return self.data.get("last_tools") or []
 
     # ========== Cooldown Checks ==========
 
@@ -247,6 +253,13 @@ class BotState:
     def get_recent_activity(self, limit: int = 10) -> List[Dict]:
         """Get recent activity for self-reflection."""
         return (self.activity_log or [])[-limit:][::-1]
+
+    def record_tool(self, tool_name: str) -> None:
+        """Track recently used tools (for variety prompts/logic)."""
+        tools = self.data.get("last_tools") or []
+        tools.append(tool_name)
+        self.data["last_tools"] = tools[-5:]
+        self.save()
 
     def get_status_summary(self) -> Dict[str, Any]:
         """Get a summary of current state for context."""

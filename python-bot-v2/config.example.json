@@ -18,5 +18,8 @@
   "persona": "your_bot_name",
   "persona_description": "Your bot's personality description",
   "discord_webhook_url": "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN",
-  "discord_webhook_name": "Your Bot Name"
+  "discord_webhook_name": "Your Bot Name",
+  "discord_control_bot_token": null,
+  "discord_control_channel_id": null,
+  "discord_control_owner_id": null
 }

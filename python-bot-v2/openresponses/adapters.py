@@ -161,11 +161,11 @@ class OllamaAdapter(BaseAdapter):
         else:
             messages = self._items_to_messages(request.input)
 
-        # Build payload with optimized options
+        # Build payload with optimized options (stream to avoid long blocking)
         payload = {
             "model": request.model or self.model,
             "messages": messages,
-            "stream": False,
+            "stream": True,
             "options": self.ollama_options.copy()  # Add Ollama-specific options
         }
         if request.tools:
@@ -181,18 +181,43 @@ class OllamaAdapter(BaseAdapter):
         url = f"{self.base_url}/chat/completions"
         headers = {"Content-Type": "application/json"}
         
-        log.debug(f"Ollama request: {url}")
-        resp = requests.post(url, json=payload, headers=headers, timeout=120)
-        resp.raise_for_status()
-        data = resp.json()
+        log.debug(f"Ollama request: {url} (stream)")
+        accumulated_text = ""
+        with requests.post(url, json=payload, headers=headers, stream=True, timeout=300) as resp:
+            resp.raise_for_status()
+            for line in resp.iter_lines():
+                if not line:
+                    continue
+                line = line.decode("utf-8")
+                if line.startswith("data: "):
+                    data_str = line[6:]
+                    if data_str == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(data_str)
+                        delta = chunk.get("choices", [{}])[0].get("delta", {})
+                        if delta.get("content"):
+                            accumulated_text += delta["content"]
+                        tool_calls = delta.get("tool_calls") or []
+                        if tool_calls:
+                            # If the model emits tool calls, keep the arguments for visibility
+                            tc = tool_calls[0]
+                            accumulated_text = tc.get("function", {}).get("arguments", "")
+                    except json.JSONDecodeError:
+                        pass
 
-        # Convert to Open Responses
         return ResponseResource(
             id=f"resp_{uuid.uuid4().hex[:16]}",
             status="completed",
-            output=self._response_to_items(data),
+            output=[{
+                "type": "message",
+                "id": f"msg_{uuid.uuid4().hex[:16]}",
+                "role": "assistant",
+                "status": "completed",
+                "content": [{"type": "output_text", "text": accumulated_text}]
+            }],
             model=request.model or self.model,
-            usage=data.get("usage")
+            usage=None
         )
 
     def create_response_stream(self, request: CreateResponseRequest) -> Generator[Dict[str, Any], None, None]:

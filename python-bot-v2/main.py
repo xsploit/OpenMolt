@@ -1540,6 +1540,12 @@ What will you do?
             # Record to memory buffer
             memory.add_to_buffer("assistant", response[:500], {"cycle": now_iso()})
 
+            # Clear stale errors after a successful cycle
+            try:
+                dashboard.clear_errors()
+            except Exception:
+                pass
+
             # Fallback: if the final response includes a post_id (JSON), log + notify
             try:
                 parsed = json.loads(response)

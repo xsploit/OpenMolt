@@ -129,6 +129,13 @@ def log_error(error: str) -> None:
     _save(data)
 
 
+def clear_errors() -> None:
+    """Clear all logged errors."""
+    data = _load()
+    data["errors"] = []
+    _save(data)
+
+
 def add_notification(
     type_: str,
     title: str,

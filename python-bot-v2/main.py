@@ -304,11 +304,11 @@ def register_all_tools(agent: Agent, api_key: str, state: BotState, config: dict
     # Track whether we've already surfaced the Moltbook 401 write bug to avoid noisy repeats
     write_401_noted = {"seen": False}
     
-    # ========== WEB SEARCH (if available) ==========
+    # ========== SERPER WEB SEARCH (if available) ==========
     if serper_key:
         agent.register_tool(
-            name="web_search",
-            description="Search the web for current information. Great for research before posting.",
+            name="serper_search",
+            description="Search the web via Serper for current information. Great for research before posting.",
             parameters={
                 "type": "object",
                 "properties": {
@@ -321,8 +321,8 @@ def register_all_tools(agent: Agent, api_key: str, state: BotState, config: dict
         )
         
         agent.register_tool(
-            name="web_news",
-            description="Get latest news on a topic. Great for trending discussions.",
+            name="serper_news",
+            description="Get latest news via Serper. Great for trending discussions.",
             parameters={
                 "type": "object",
                 "properties": {
@@ -1048,6 +1048,12 @@ def gather_context(api_key: str, state: BotState) -> dict:
     except Exception:
         context["feed_random"] = []
 
+    context["feed_counts"] = {
+        "new": len(feed_new),
+        "hot": len(hot_posts),
+        "random": len(context["feed_random"]),
+    }
+
     # Submolts (cached)
     context["submolts"] = _cache_submolts(api_key, state)
 
@@ -1077,8 +1083,41 @@ def gather_context(api_key: str, state: BotState) -> dict:
         "our_comment_count": len(state.our_comment_ids),
     }
     context["our_post_ids"] = state.our_post_ids[:5]
+    context["last_tools"] = state.last_tools[:3]
 
     return context
+
+
+def _format_feed_toon(feed_new, feed_random, last_tools, feed_counts, search_seeds) -> str:
+    """Compact TOON-style block for feed + seeds to cut tokens."""
+    lines = []
+    def _post_lines(label, posts, limit=6):
+        if not posts:
+            lines.append(f"{label}: []")
+            return
+        lines.append(f"{label}:")
+        for p in posts[:limit]:
+            title = (p.get("title") or "")[:80]
+            submolt = (p.get("submolt") or {}).get("name") or "?"
+            pid = p.get("id") or "?"
+            up = p.get("upvotes", 0)
+            cm = p.get("comment_count") or p.get("comments") or p.get("comment_count") or 0
+            lines.append(f"  - id: {pid}")
+            lines.append(f"    title: {title}")
+            lines.append(f"    submolt: {submolt}")
+            lines.append(f"    upvotes: {up}")
+            lines.append(f"    comments: {cm}")
+    _post_lines("feed_new", feed_new, limit=6)
+    _post_lines("feed_random", feed_random, limit=4)
+    if last_tools:
+        lines.append(f"last_tools: [{', '.join(last_tools)}]")
+    if feed_counts:
+        lines.append(f"feed_counts: {feed_counts}")
+    if search_seeds:
+        lines.append("search_seeds:")
+        for s in search_seeds[:6]:
+            lines.append(f"  - {s}")
+    return "\n".join(lines)
 
 
 # ============================================================================
@@ -1268,6 +1307,10 @@ def main():
 
             def on_tool_call(name, args, result):
                 log.info(f"Tool: {name}")
+                try:
+                    state.record_tool(name)
+                except Exception:
+                    pass
                 if discord_url:
                     try:
                         dw.notify_tool_card(discord_url, name, args, result, username=discord_name, timestamp_iso=now_iso())
@@ -1296,29 +1339,31 @@ def main():
 
             # Build prompt
             fresh_candidates = context.get("feed_candidates") or []
-            fresh_list = "\n".join(
-                [f"- {p.get('title','')[:80]} (m/{(p.get('submolt') or {}).get('name','?')})"
-                 for p in fresh_candidates[:6]]
-            ) or "- none in the last 24h"
-            random_list = "\n".join(
-                [f"- {p.get('title','')[:80]} (m/{(p.get('submolt') or {}).get('name','?')})"
-                 for p in (context.get('feed_random') or [])[:4]]
-            ) or "- random batch unavailable"
-            search_seeds = "\n".join([f"- {q}" for q in (context.get("search_seeds") or [])]) or "- memory, safety, tooling, welcome posts"
+            feed_random = context.get("feed_random") or []
+            toon_block = _format_feed_toon(
+                feed_new=fresh_candidates,
+                feed_random=feed_random,
+                last_tools=context.get("last_tools") or [],
+                feed_counts=context.get("feed_counts") or {},
+                search_seeds=context.get("search_seeds") or [],
+            )
 
             prompt = f"""# HEARTBEAT - Time to check Moltbook!
 
 ## Current Context
 {json.dumps(context, indent=2, default=str)[:5000]}
 
-## Fresh targets (unseen, <24h)
-{fresh_list}
+## Targets + seeds (TOON, compact)
+{toon_block}
 
-## Shuffle batch (server random)
-{random_list}
-
-## Search ideas (try semantic search if feed is sparse/repetitive)
-{search_seeds}
+## Action rules (follow these)
+- Don't repeat the same tool twice in a row; vary actions.
+- At most 2 feed pulls this cycle. If feed feels repetitive, use get_random_posts or search_moltbook.
+- If write actions return 401, switch to read/search for the rest of the cycle.
+- Prioritize replies/mentions > fresh unseen posts > search/random > post (if cooldown allows) > DM.
+- Respect cooldowns: post cooldown {state.post_cooldown_remaining()//60}m, comment cooldown {state.comment_cooldown_remaining()}s.
+- Last tools used: {context.get("last_tools")}
+- Feed counts: {context.get("feed_counts")}
 
 ## What You Can Do
 

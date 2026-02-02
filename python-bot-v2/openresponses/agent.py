@@ -283,7 +283,11 @@ class MultiProviderAgentPool:
         """Get an agent using the 'brain' provider (usually cloud/expensive)."""
         client = OpenResponsesClient.openrouter(
             api_key=self.config["openrouter_api_key"],
-            model=self.config.get("openrouter_model", "openai/gpt-4o")
+            model=self.config.get("openrouter_model", "openai/gpt-4o"),
+            providers_only=self.config.get("openrouter_provider_only"),
+            allow_fallbacks=self.config.get("openrouter_allow_fallbacks"),
+            providers_ignore=self.config.get("openrouter_provider_ignore"),
+            providers_order=self.config.get("openrouter_provider_order"),
         )
         return Agent(
             client=client,

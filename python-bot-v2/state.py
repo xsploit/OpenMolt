@@ -44,6 +44,7 @@ class BotState:
     - last_comment_at: When we last commented (20s cooldown)
     - our_post_ids: Posts we've created (don't comment on own)
     - our_comment_ids: Comments we've made (track replies to us)
+    - seen_comment_ids: Comments we've already seen when polling our threads
     - dm_auto_replied: DM conversations we've auto-replied to
     - activity_log: Recent actions for self-reflection
     """
@@ -64,6 +65,7 @@ class BotState:
             # Trim historical lists
             data["our_post_ids"] = (data.get("our_post_ids") or [])[-50:]
             data["our_comment_ids"] = (data.get("our_comment_ids") or [])[-50:]
+            data["seen_comment_ids"] = (data.get("seen_comment_ids") or [])[-200:]
             data["last_seen_post_ids"] = (data.get("last_seen_post_ids") or [])[-100:]
             data["activity_log"] = (data.get("activity_log") or [])[-50:]
             return data
@@ -79,6 +81,7 @@ class BotState:
             "last_comment_at": None,
             "our_post_ids": [],
             "our_comment_ids": [],
+            "seen_comment_ids": [],
             "dm_auto_replied": {},
             "submolts_cache": None,
             "submolts_cached_at": None,
@@ -87,6 +90,7 @@ class BotState:
             "comment_count_today": 0,
             "dream_actions_since": 0,
             "last_dream_at": None,
+            "last_notify_check": None,
             "last_tools": [],
         }
 
@@ -112,6 +116,10 @@ class BotState:
         return self.data.get("our_comment_ids") or []
 
     @property
+    def seen_comment_ids(self) -> List[str]:
+        return self.data.get("seen_comment_ids") or []
+
+    @property
     def last_seen_post_ids(self) -> set:
         return set(self.data.get("last_seen_post_ids") or [])
 
@@ -123,6 +131,11 @@ class BotState:
     def last_tools(self) -> List[str]:
         """Most recent tools invoked (read + write)."""
         return self.data.get("last_tools") or []
+
+    @property
+    def last_notify_check(self) -> Optional[str]:
+        """When we last polled DMs/replies."""
+        return self.data.get("last_notify_check")
 
     # ========== Cooldown Checks ==========
 
@@ -198,7 +211,13 @@ class BotState:
         self.data["last_comment_at"] = _now_iso()
         ids = self.our_comment_ids + [comment_id]
         self.data["our_comment_ids"] = ids[-50:]
-        self._log_activity("comment", post_id=post_id, comment_id=comment_id)
+
+    def add_seen_comment(self, comment_id: str, post_id: Optional[str] = None) -> None:
+        if not comment_id:
+            return
+        ids = self.seen_comment_ids + [comment_id]
+        self.data["seen_comment_ids"] = ids[-200:]
+        self._log_activity("comment_seen", post_id=post_id, comment_id=comment_id)
         self.save()
 
     def mark_dm_replied(self, conversation_id: str) -> None:
@@ -245,6 +264,23 @@ class BotState:
     def is_our_comment(self, comment_id: str) -> bool:
         """Check if this is our comment."""
         return comment_id in self.our_comment_ids
+
+    # ========== Notification polling helpers ==========
+
+    def should_poll_notifications(self, interval_sec: int = 600) -> bool:
+        """
+        Decide whether to poll DMs / replies now.
+        Default interval: 10 minutes (600s).
+        """
+        last = _parse_ts(self.last_notify_check)
+        if not last:
+            return True
+        return (time.time() - last) >= interval_sec
+
+    def mark_notify_check(self) -> None:
+        """Record that we just polled notifications."""
+        self.data["last_notify_check"] = _now_iso()
+        self.save()
 
     def already_seen(self, post_id: str) -> bool:
         """Check if we've already seen this post."""

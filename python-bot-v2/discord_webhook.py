@@ -195,13 +195,22 @@ def notify_tool_card(
     args_str = json.dumps(args, ensure_ascii=False) if args else "{}"
     args_str = _trunc(args_str, 500)
     result_str = _format_result(result, 800)
+    fields = [
+        {"name": "Args", "value": f"```json\n{args_str}\n```", "inline": False},
+        {"name": "Result", "value": f"```\n{result_str}\n```", "inline": False},
+    ]
+    # Add a quick link for Moltbook post/comment actions
+    post_id = None
+    if isinstance(args, dict):
+        post_id = args.get("post_id") or args.get("id")
+    if post_id:
+        post_url = f"{MOLTBOOK_POST_URL}{post_id}"
+        fields.append({"name": "Link", "value": f"[View post]({post_url})", "inline": True})
+
     emb = {
         "title": f"Tool: `{tool_name}`",
         "color": _tool_color(tool_name),
-        "fields": [
-            {"name": "Args", "value": f"```json\n{args_str}\n```", "inline": False},
-            {"name": "Result", "value": f"```\n{result_str}\n```", "inline": False},
-        ],
+        "fields": fields,
     }
     _embed_common(emb, timestamp_iso=timestamp_iso, footer=f"Tool: {tool_name}")
     return post(webhook_url, embeds=[emb], username=username)

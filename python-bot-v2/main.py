@@ -335,11 +335,18 @@ def register_all_tools(agent: Agent, api_key: str, state: BotState, config: dict
                 "properties": {
                     "query": {"type": "string"},
                     "num": {"type": "integer"}
-                },
-                "required": ["query"]
             },
-            handler=lambda query, num=5: serper.news(serper_key, query, num)
-        )
+            "required": ["query"]
+        },
+        handler=lambda query, num=5: serper.news(serper_key, query, num)
+    )
+
+    def _search_moltbook_safe(api_key: str, query: str, type: str = "all", limit: int = 20):
+        try:
+            return moltbook.search(api_key, query, type, limit)
+        except Exception as e:
+            log.warning(f"search_moltbook failed: {e}")
+            return {"error": f"search failed: {e}"}
 
     # ========== MOLTBOOK SEARCH ==========
     agent.register_tool(
@@ -354,7 +361,7 @@ def register_all_tools(agent: Agent, api_key: str, state: BotState, config: dict
             },
             "required": ["query"]
         },
-        handler=lambda query, type="all", limit=20: moltbook.search(api_key, query, type, limit)
+        handler=lambda query, type="all", limit=20: _search_moltbook_safe(api_key, query, type, limit)
     )
 
     # ========== POSTS ==========
@@ -1031,7 +1038,7 @@ def gather_context(api_key: str, state: BotState) -> dict:
 
     # Add one random batch for more variety (no dedupe with seen_ids since API already randomizes)
     try:
-        rand_batch = moltbook.get_random_posts(api_key, limit=10)
+        rand_batch = moltbook.get_random_posts(api_key, limit=6)
         rand_posts = rand_batch.get("posts", rand_batch) if isinstance(rand_batch, dict) else rand_batch
         context["feed_random"] = rand_posts or []
     except Exception:
@@ -1075,6 +1082,60 @@ def gather_context(api_key: str, state: BotState) -> dict:
     context["last_tools"] = state.last_tools[:3]
 
     return context
+
+
+def sync_notifications_to_dashboard(
+    state: BotState,
+    context: Dict[str, Any],
+    persona_name: str,
+    poll_interval_sec: int = 600,
+) -> None:
+    """
+    Every poll_interval_sec (default 10m), push DM inbox + new replies to dashboard.json.
+    """
+    if not state.should_poll_notifications(poll_interval_sec):
+        return
+
+    try:
+        dm_status = context.get("dm_status")
+        feed_count = len(context.get("feed", []) or [])
+        pending = (dm_status or {}).get("requests", {}).get("count", 0)
+        unread = (dm_status or {}).get("messages", {}).get("total_unread", 0)
+        status_summary = f"pending={pending}, unread={unread}, feed={feed_count}"
+        dashboard.update_cycle(
+            agent_name=persona_name or "Unknown",
+            status=status_summary,
+            dm_inbox=dm_status,
+            last_post_at=state.data.get("last_post_at"),
+            last_comment_at=state.data.get("last_comment_at"),
+        )
+    except Exception:
+        pass
+
+    replies = context.get("replies_to_you") or []
+    for r in replies:
+        cid = r.get("comment_id")
+        pid = r.get("post_id")
+        if not cid or cid in state.seen_comment_ids:
+            continue
+        author = r.get("author") or "unknown"
+        snippet = (r.get("content") or "")[:200]
+        link = f"https://www.moltbook.com/post/{pid}" if pid else None
+        try:
+            state.add_seen_comment(cid, post_id=pid)
+        except Exception:
+            pass
+        try:
+            dashboard.add_notification(
+                type_="reply",
+                title=f"New reply from {author}",
+                body=snippet,
+                link=link,
+            )
+        except Exception:
+            pass
+
+    state.mark_notify_check()
 
 
 def _format_feed_toon(feed_new, feed_random, last_tools, feed_counts, search_seeds) -> str:
@@ -1276,6 +1337,10 @@ def main():
             # Gather context
             context = gather_context(api_key, state)
             profile_name = context.get("my_profile", {}).get("name", "Unknown")
+            try:
+                sync_notifications_to_dashboard(state, context, persona_name=config.get("persona", profile_name), poll_interval_sec=600)
+            except Exception:
+                pass
             
             log.info(f"Agent: {profile_name}")
             
@@ -1291,7 +1356,8 @@ def main():
             unread = dm_status.get("messages", {}).get("total_unread", 0)
             feed = context.get("feed", [])
             feed_count = len(feed) if isinstance(feed, list) else 0
-            
+            search_blocked = False  # per-cycle guard for failing search
+
             log.info(f"DMs: {pending} pending, {unread} unread | Feed: {feed_count} posts")
             log.info(f"Cooldowns: can_post={state.can_post()}, can_comment={state.can_comment()}")
             try:
@@ -1338,10 +1404,25 @@ def main():
 
             def on_tool_call(name, args, result):
                 log.info(f"Tool: {name}")
+                nonlocal search_blocked
+                if name == "search_moltbook":
+                    # If already blocked this cycle, short-circuit and return synthetic error
+                    if search_blocked:
+                        result.update({"error": "search disabled this cycle after prior failure"})
+                        log.info("search_moltbook skipped: previously failed this cycle")
+                        return
+                    # If this call returned an error, block further search calls this cycle
+                    if isinstance(result, dict) and result.get("error"):
+                        search_blocked = True
                 try:
                     state.record_tool(name)
                 except Exception:
                     pass
+                def _mem_log(kind: str, text: str, meta: dict = None):
+                    try:
+                        memory.add_to_buffer(kind, (text or "")[:800], meta or {})
+                    except Exception:
+                        pass
                 # Dashboard + webhook side-effects for Moltbook actions
                 try:
                     from dashboard import log_action, update_cycle
@@ -1361,6 +1442,7 @@ def main():
                                     last_post_at=ts_now,
                                     last_comment_at=state.data.get("last_comment_at"),
                                 )
+                                _mem_log("assistant", f"POST [{submolt or 'general'}] {title_snip}\n{(args.get('content') or '')[:600]}", {"post_id": post_id, "submolt": submolt or "general", "ts": ts_now})
                                 if discord_url:
                                     try:
                                         dw.notify_post_created(
@@ -1388,6 +1470,7 @@ def main():
                                     last_post_at=state.data.get("last_post_at"),
                                     last_comment_at=ts_now,
                                 )
+                                _mem_log("assistant", f"COMMENT on {post_id}: {content_snip}", {"comment_id": comment_id, "post_id": post_id, "ts": ts_now})
                                 if discord_url:
                                     try:
                                         dw.notify_comment_created(
@@ -1401,6 +1484,16 @@ def main():
                                         pass
                         elif name in ("upvote_post", "downvote_post"):
                             log_action("upvote", post_id=args.get("post_id"))
+                        elif name == "get_post":
+                            try:
+                                post = (result or {}).get("post") or {}
+                                pid = post.get("id")
+                                title = post.get("title") or ""
+                                content = post.get("content") or ""
+                                if pid:
+                                    _mem_log("context", f"VIEW POST {pid}: {title}\n{content}", {"post_id": pid, "ts": ts_now})
+                            except Exception:
+                                pass
                 except Exception:
                     pass
 
@@ -1472,6 +1565,7 @@ def main():
 ## Action rules (follow these)
 - Don't repeat the same tool twice in a row; vary actions.
 - At most 2 feed pulls this cycle. If feed feels repetitive, use get_random_posts or search_moltbook.
+- If search_moltbook returns an error, do NOT call search_moltbook again this cycle.
 - When calling tools, arguments must be valid JSON. Escape inner quotes (use \\\" in strings) so payloads parse.
 - Prioritize replies/mentions > fresh unseen posts > search/random > post (if cooldown allows) > DM.
 - Respect cooldowns: post cooldown {state.post_cooldown_remaining()//60}m, comment cooldown {state.comment_cooldown_remaining()}s.

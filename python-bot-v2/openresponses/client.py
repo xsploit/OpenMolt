@@ -41,9 +41,26 @@ class OpenResponsesClient:
         return cls(OllamaAdapter(base_url=base_url, model=model, ollama_options=ollama_options))
 
     @classmethod
-    def openrouter(cls, api_key: str, model: str = "openai/gpt-4o") -> "OpenResponsesClient":
+    def openrouter(
+        cls,
+        api_key: str,
+        model: str = "openai/gpt-4o",
+        providers_only: Optional[list] = None,
+        allow_fallbacks: Optional[bool] = None,
+        providers_ignore: Optional[list] = None,
+        providers_order: Optional[list] = None,
+    ) -> "OpenResponsesClient":
         """Create a client using OpenRouter backend."""
-        return cls(OpenRouterAdapter(api_key=api_key, model=model))
+        return cls(
+            OpenRouterAdapter(
+                api_key=api_key,
+                model=model,
+                providers_only=providers_only,
+                allow_fallbacks=allow_fallbacks,
+                providers_ignore=providers_ignore,
+                providers_order=providers_order,
+            )
+        )
 
     @classmethod
     def from_config(cls, config: Dict[str, Any]) -> "OpenResponsesClient":
@@ -51,7 +68,11 @@ class OpenResponsesClient:
         if config.get("brain_use_openrouter"):
             return cls.openrouter(
                 api_key=config["openrouter_api_key"],
-                model=config.get("openrouter_model", "openai/gpt-4o")
+                model=config.get("openrouter_model", "openai/gpt-4o"),
+                providers_only=config.get("openrouter_provider_only"),
+                allow_fallbacks=config.get("openrouter_allow_fallbacks"),
+                providers_ignore=config.get("openrouter_provider_ignore"),
+                providers_order=config.get("openrouter_provider_order"),
             )
         else:
             # Get Ollama options from config

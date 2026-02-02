@@ -388,8 +388,20 @@ class OpenRouterAdapter(BaseAdapter):
     Same translation logic, different auth and endpoint.
     """
 
-    def __init__(self, api_key: str, model: str = "openai/gpt-4o"):
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "openai/gpt-4o",
+        providers_only: Optional[list] = None,
+        allow_fallbacks: Optional[bool] = None,
+        providers_ignore: Optional[list] = None,
+        providers_order: Optional[list] = None,
+    ):
         super().__init__("https://openrouter.ai/api/v1", api_key, model)
+        self.providers_only = providers_only or []
+        self.allow_fallbacks = allow_fallbacks
+        self.providers_ignore = providers_ignore or []
+        self.providers_order = providers_order or []
 
     def _items_to_messages(self, items: List[Item]) -> List[Dict[str, Any]]:
         """Same as Ollama - chat completions format."""
@@ -489,6 +501,17 @@ class OpenRouterAdapter(BaseAdapter):
             payload["temperature"] = request.temperature
         if request.max_output_tokens:
             payload["max_output_tokens"] = request.max_output_tokens
+        provider_cfg = {}
+        if self.providers_only:
+            provider_cfg["only"] = self.providers_only
+        if self.allow_fallbacks is not None:
+            provider_cfg["allow_fallbacks"] = self.allow_fallbacks
+        if self.providers_ignore:
+            provider_cfg["ignore"] = self.providers_ignore
+        if self.providers_order:
+            provider_cfg["order"] = self.providers_order
+        if provider_cfg:
+            payload["provider"] = provider_cfg
 
         url = f"{self.base_url}/responses"
         headers = {
@@ -496,7 +519,9 @@ class OpenRouterAdapter(BaseAdapter):
             "Authorization": f"Bearer {self.api_key}"
         }
 
-        log.debug(f"OpenRouter request: {url}")
+        if log.isEnabledFor(logging.INFO):
+            prov = payload.get("provider")
+            log.info(f"OpenRouter request model={payload.get('model')} provider={prov}")
         resp = requests.post(url, json=payload, headers=headers, timeout=120)
         try:
             resp.raise_for_status()
@@ -565,6 +590,17 @@ class OpenRouterAdapter(BaseAdapter):
         if request.tools:
             payload["tools"] = [self._tool_entry(t) for t in request.tools]
             payload["tool_choice"] = request.tool_choice or "auto"
+        provider_cfg = {}
+        if self.providers_only:
+            provider_cfg["only"] = self.providers_only
+        if self.allow_fallbacks is not None:
+            provider_cfg["allow_fallbacks"] = self.allow_fallbacks
+        if self.providers_ignore:
+            provider_cfg["ignore"] = self.providers_ignore
+        if self.providers_order:
+            provider_cfg["order"] = self.providers_order
+        if provider_cfg:
+            payload["provider"] = provider_cfg
 
         url = f"{self.base_url}/responses"
         headers = {

@@ -1,93 +1,90 @@
 """
-Discord control bot (optional).
+Discord control bot using discord.py commands extension (optional).
 
-Requirements:
-  - python -m pip install discord.py
-Config keys (optional):
+Config (optional):
   - discord_control_bot_token: bot token string
   - discord_control_channel_id: int (channel where bot should respond)
   - discord_control_owner_id: int (only this user can issue commands)
 
-Behavior:
-  - Listens in the allowed channel only.
-  - Rejects commands from non-owner.
-  - Commands:
-      !status          -> enqueues {"type":"status"}
-      !run             -> enqueues {"type":"run_once"}
-      !say <text>      -> enqueues {"type":"director_note","text":...}
-      !pause           -> enqueues {"type":"pause"}
-      !resume          -> enqueues {"type":"resume"}
-  - All commands are best-effort; errors are sent as ephemeral replies.
-
-Integration:
-  - In main.py, create a Queue and pass its getter into the main loop to act on messages.
-  - Start this bot in a background thread if token is provided.
+Commands (owner + channel gated):
+  !status        -> enqueue {"type": "status_request"}
+  !run           -> enqueue {"type": "run_once"}
+  !say <text>    -> enqueue {"type": "director_note", "text": ...}
+  !pause         -> enqueue {"type": "pause"}
+  !resume        -> enqueue {"type": "resume"}
 """
 import asyncio
 import logging
 from typing import Callable
 
 import discord
+from discord.ext import commands
 
 log = logging.getLogger(__name__)
 
 
 def start_discord_control(token: str, channel_id: int, owner_id: int, enqueue: Callable[[dict], None]) -> None:
-    """Start the Discord control bot in its own asyncio loop."""
-
     intents = discord.Intents.none()
     intents.messages = True
     intents.message_content = True
 
-    class ControlClient(discord.Client):
-        async def on_ready(self):
-            log.info(f"Discord control bot logged in as {self.user}")
+    def owner_and_channel_only():
+        async def predicate(ctx: commands.Context):
+            return ctx.author.id == owner_id and ctx.channel.id == channel_id and not ctx.author.bot
+        return commands.check(predicate)
 
-        async def on_message(self, message: discord.Message):
-            # Channel + owner gate
-            if message.author.id != owner_id:
-                return
-            if message.channel.id != channel_id:
-                return
-            if message.author.bot:
-                return
-            content = message.content.strip()
-            cmd, *rest = content.split(" ", 1)
-            arg = rest[0].strip() if rest else ""
+    bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
-            def ack(text: str):
-                try:
-                    return asyncio.create_task(message.reply(text))
-                except Exception:
-                    return None
+    @bot.event
+    async def on_ready():
+        log.info(f"Discord control bot logged in as {bot.user}")
 
-            if cmd == "!status":
-                enqueue({"type": "status_request"})
-                ack("Status requested.")
-            elif cmd == "!run":
-                enqueue({"type": "run_once"})
-                ack("Run requested.")
-            elif cmd == "!say":
-                if not arg:
-                    ack("Usage: !say <text>")
-                else:
-                    enqueue({"type": "director_note", "text": arg})
-                    ack("Director note queued.")
-            elif cmd == "!pause":
-                enqueue({"type": "pause"})
-                ack("Pause requested.")
-            elif cmd == "!resume":
-                enqueue({"type": "resume"})
-                ack("Resume requested.")
-            else:
-                # ignore other messages
-                return
+    @bot.command(name="status")
+    @owner_and_channel_only()
+    async def status_cmd(ctx: commands.Context):
+        enqueue({"type": "status_request"})
+        await ctx.reply("Status requested.", mention_author=False)
 
-    client = ControlClient(intents=intents)
+    @bot.command(name="run")
+    @owner_and_channel_only()
+    async def run_cmd(ctx: commands.Context):
+        enqueue({"type": "run_once"})
+        await ctx.reply("Run queued.", mention_author=False)
+
+    @bot.command(name="say")
+    @owner_and_channel_only()
+    async def say_cmd(ctx: commands.Context, *, text: str = ""):
+        if not text.strip():
+            await ctx.reply("Usage: !say <text>", mention_author=False)
+            return
+        enqueue({"type": "director_note", "text": text.strip()})
+        await ctx.reply("Director note queued.", mention_author=False)
+
+    @bot.command(name="pause")
+    @owner_and_channel_only()
+    async def pause_cmd(ctx: commands.Context):
+        enqueue({"type": "pause"})
+        await ctx.reply("Pause requested.", mention_author=False)
+
+    @bot.command(name="resume")
+    @owner_and_channel_only()
+    async def resume_cmd(ctx: commands.Context):
+        enqueue({"type": "resume"})
+        await ctx.reply("Resume requested.", mention_author=False)
+
+    @bot.event
+    async def on_command_error(ctx: commands.Context, error):
+        if isinstance(error, commands.CheckFailure):
+            return  # silently ignore non-owner/channel
+        try:
+            await ctx.reply(f"Error: {error}", mention_author=False)
+        except Exception:
+            pass
+        log.warning(f"Discord command error: {error}")
 
     async def runner():
         try:
-            await client.start(token)
+            await bot.start(token)
         except Exception as e:
             log.error(f"Discord control bot failed: {e}")
 

@@ -40,6 +40,20 @@ def _load_config():
     }
 
 
+def _load_dashboard_data() -> dict:
+    """
+    Best-effort load of the dashboard JSON so we can surface errors/notifications.
+    Falls back to an empty structure if missing or unreadable.
+    """
+    path = BOT_DIR / "web" / "dashboard.json"
+    if not path.exists():
+        return {"errors": [], "notifications": []}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {"errors": [], "notifications": []}
+
+
 def _mask_key(key):
     if not key or len(key) < 8:
         return "***"
@@ -87,7 +101,11 @@ def _api_dm_conversations(key):
         import moltbook
         return moltbook.dm_conversations(key)
     except Exception as e:
-        return {"error": str(e)}
+        # Soften upstream 5xx errors so the dashboard UI doesn't scare users.
+        msg = str(e)
+        if "500" in msg or "502" in msg or "503" in msg:
+            msg = "DMs temporarily unavailable (Moltbook returned 5xx). Try again shortly."
+        return {"conversations": [], "error": msg}
 
 
 def _api_dm_conversation(key, conversation_id):
@@ -203,6 +221,7 @@ def _api_dashboard_json():
     if activity:
         last_action = activity[0]
         actions_history = activity
+    dash_data = _load_dashboard_data()
     return {
         "agent_name": cfg.get("persona", ""),
         "last_run": state_data.get("last_check"),
@@ -211,8 +230,8 @@ def _api_dashboard_json():
         "last_post_at": state_data.get("last_post_at"),
         "last_comment_at": state_data.get("last_comment_at"),
         "actions_history": actions_history,
-        "errors": [],
-        "notifications": [],
+        "errors": dash_data.get("errors") or [],
+        "notifications": dash_data.get("notifications") or [],
         "dm_inbox": dm_check if isinstance(dm_check, dict) else {},
         "post_cooldown_remaining_sec": state_data.get("post_cooldown_remaining_sec"),
         "comment_cooldown_remaining_sec": state_data.get("comment_cooldown_remaining_sec"),

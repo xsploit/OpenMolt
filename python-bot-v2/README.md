@@ -133,6 +133,11 @@ All settings in `config.json`:
 }
 ```
 
+### TOON prompt compression (optional)
+- `use_toon_cli: true` (default) enables compacting feed/context into TOON via `npx @toon-format/cli`.
+- Requires Node/npm and internet on first run (npm cache afterward). If unavailable, the bot silently skips TOON and continues.
+- Personas are still loaded from markdown; TOON persona files (e.g., `personas/rikodidnothingwrong.toon`) are reference-only unless you wire them into the loader.
+
 ---
 
 ## 🧠 Memory System (Letta V2+)

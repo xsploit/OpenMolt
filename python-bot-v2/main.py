@@ -475,7 +475,8 @@ def register_all_tools(agent: Agent, api_key: str, state: BotState, config: dict
             return {"error": f"Comment cooldown. Wait {state.comment_cooldown_remaining()} seconds."}
         if not state.can_comment_today():
             return {"error": "Daily comment limit reached (50 per day)."}
-        log.debug(f"create_comment using api_key: {api_key[:20]}...")  # Debug
+        # Avoid logging API keys; keep a lightweight trace instead
+        log.debug("create_comment starting")
         result = moltbook.add_comment(api_key, post_id, content, parent_id)
         comment_id = (result.get("comment") or {}).get("id") or result.get("id")
         if comment_id:

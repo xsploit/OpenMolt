@@ -211,6 +211,9 @@ class BotState:
         self.data["last_comment_at"] = _now_iso()
         ids = self.our_comment_ids + [comment_id]
         self.data["our_comment_ids"] = ids[-50:]
+        # Keep activity/dream counters and persist immediately
+        self._log_activity("comment", post_id=post_id, comment_id=comment_id)
+        self.save()
 
     def add_seen_comment(self, comment_id: str, post_id: Optional[str] = None) -> None:
         if not comment_id:
